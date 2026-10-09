@@ -4,6 +4,7 @@ class LeaderboardEntry {
   final String name;
   final String college;
   final String campus;
+  final String hostel;
   final String avatarInitials;
   final int xp;
   final int weeklyXp;
@@ -20,6 +21,7 @@ class LeaderboardEntry {
     required this.name,
     this.college = 'Government College of Engineering, Kalahandi',
     this.campus = 'GCEK Kalahandi',
+    this.hostel = 'Mahanadi Hostel',
     required this.avatarInitials,
     required this.xp,
     this.weeklyXp = 0,
@@ -37,6 +39,7 @@ class LeaderboardEntry {
     String? name,
     String? college,
     String? campus,
+    String? hostel,
     String? avatarInitials,
     int? xp,
     int? weeklyXp,
@@ -53,6 +56,7 @@ class LeaderboardEntry {
       name: name ?? this.name,
       college: college ?? this.college,
       campus: campus ?? this.campus,
+      hostel: hostel ?? this.hostel,
       avatarInitials: avatarInitials ?? this.avatarInitials,
       xp: xp ?? this.xp,
       weeklyXp: weeklyXp ?? this.weeklyXp,
@@ -71,6 +75,7 @@ class LeaderboardEntry {
     'name': name,
     'college': college,
     'campus': campus,
+    'hostel': hostel,
     'avatarInitials': avatarInitials,
     'xp': xp,
     'weeklyXp': weeklyXp,
@@ -89,6 +94,9 @@ class LeaderboardEntry {
         name: json['name'] as String,
         college: json['college'] as String? ?? '',
         campus: json['campus'] as String? ?? '',
+        hostel: json['hostel'] as String? ??
+            (json['hostelName'] as String?) ??
+            'Mahanadi Hostel',
         avatarInitials: json['avatarInitials'] as String? ?? '',
         xp: (json['xp'] as num?)?.toInt() ?? 0,
         weeklyXp: (json['weeklyXp'] as num?)?.toInt() ?? 0,
@@ -104,5 +112,5 @@ class LeaderboardEntry {
 
   @override
   String toString() =>
-      'LeaderboardEntry(rank: $rank, name: $name, xp: $xp, weeklyXp: $weeklyXp, level: $level, isCurrentUser: $isCurrentUser)';
+      'LeaderboardEntry(rank: $rank, name: $name, hostel: $hostel, college: $college, xp: $xp, weeklyXp: $weeklyXp, level: $level, isCurrentUser: $isCurrentUser)';
 }

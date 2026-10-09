@@ -15,6 +15,7 @@ void main() {
         name: 'Soumya Ranjan',
         college: 'VSSUT Burla',
         campus: 'Burla Campus',
+        hostel: 'Brahmaputra Hall',
         avatarInitials: 'SR',
         xp: 2500,
         weeklyXp: 450,
@@ -30,6 +31,7 @@ void main() {
       expect(entry.name, equals('Soumya Ranjan'));
       expect(entry.college, equals('VSSUT Burla'));
       expect(entry.campus, equals('Burla Campus'));
+      expect(entry.hostel, equals('Brahmaputra Hall'));
       expect(entry.avatarInitials, equals('SR'));
       expect(entry.xp, equals(2500));
       expect(entry.weeklyXp, equals(450));
@@ -46,17 +48,24 @@ void main() {
         id: 'entry_1',
         name: 'Aman',
         avatarInitials: 'AM',
+        hostel: 'APJ Kalam Block',
         xp: 1800,
         level: 3,
         levelTitle: 'Fitness Seeker',
         streakDays: 4,
       );
 
-      final updated = original.copyWith(rank: 1, xp: 2000, weeklyXp: 300);
+      final updated = original.copyWith(
+        rank: 1,
+        xp: 2000,
+        weeklyXp: 300,
+        hostel: 'Mahanadi Hostel',
+      );
 
       expect(updated.rank, equals(1));
       expect(updated.xp, equals(2000));
       expect(updated.weeklyXp, equals(300));
+      expect(updated.hostel, equals('Mahanadi Hostel'));
       expect(updated.id, equals('entry_1'));
       expect(original.rank, equals(0));
     });
@@ -67,6 +76,7 @@ void main() {
         name: 'Rahul Patel',
         college: 'GCEK',
         campus: 'GCEK Kalahandi',
+        hostel: 'Brahmaputra Hall',
         avatarInitials: 'RP',
         xp: 4120,
         weeklyXp: 780,
@@ -80,12 +90,14 @@ void main() {
 
       final json = entry.toJson();
       expect(json['id'], equals('student_rahul'));
+      expect(json['hostel'], equals('Brahmaputra Hall'));
       expect(json['xp'], equals(4120));
       expect(json['weeklyXp'], equals(780));
 
       final restored = LeaderboardEntry.fromJson(json);
       expect(restored.id, equals(entry.id));
       expect(restored.name, equals(entry.name));
+      expect(restored.hostel, equals(entry.hostel));
       expect(restored.xp, equals(entry.xp));
       expect(restored.weeklyXp, equals(entry.weeklyXp));
       expect(restored.rank, equals(entry.rank));
@@ -110,6 +122,7 @@ void main() {
       await gamificationService.resetToDefaults();
       await communityService.resetToDefaults();
 
+      leaderboardService.resetFilters();
       leaderboardService.setFilter(LeaderboardFilter.campus);
     });
 
@@ -276,6 +289,119 @@ void main() {
       expect(entry.name, equals('Pragyan Nayak'));
       expect(entry.college, equals('NIT Rourkela'));
       expect(entry.avatarInitials, equals('PN'));
+    });
+
+    // -------------------------------------------------------------
+    // PHASE A STEP A1: SOCIAL LEADERBOARD (HOSTEL & COLLEGE) TESTS
+    // -------------------------------------------------------------
+    test('Inter-Hostel mode: assigns realistic hostels and sorts participants', () {
+      leaderboardService.setMode(LeaderboardMode.interHostel);
+      expect(leaderboardService.currentMode, equals(LeaderboardMode.interHostel));
+
+      final entries = leaderboardService.getEntries(
+        mode: LeaderboardMode.interHostel,
+      );
+
+      expect(entries.length, equals(9));
+      for (final entry in entries) {
+        expect(entry.hostel.isNotEmpty, isTrue);
+      }
+
+      // Check top student has highest XP
+      expect(entries.first.xp, greaterThanOrEqualTo(entries[1].xp));
+      // Ranks are sequential
+      for (int i = 0; i < entries.length; i++) {
+        expect(entries[i].rank, equals(i + 1));
+      }
+    });
+
+    test('Inter-College mode: assigns realistic colleges and sorts participants', () {
+      leaderboardService.setMode(LeaderboardMode.interCollege);
+      expect(leaderboardService.currentMode, equals(LeaderboardMode.interCollege));
+
+      final entries = leaderboardService.getEntries(
+        mode: LeaderboardMode.interCollege,
+      );
+
+      expect(entries.length, equals(9));
+      for (final entry in entries) {
+        expect(entry.college.isNotEmpty, isTrue);
+      }
+
+      // Check current user is included
+      final userEntry = entries.firstWhere((e) => e.isCurrentUser);
+      expect(userEntry.college, equals(userService.currentUser.college));
+    });
+
+    test('Inter-Hostel filtering: filters by specific hostel accurately', () {
+      // Filter strictly by 'Mahanadi Hostel'
+      // Priya Sharma (3250 XP) and current user Ayush (3850 XP) belong to Mahanadi Hostel
+      final entries = leaderboardService.getEntries(
+        mode: LeaderboardMode.interHostel,
+        hostelFilter: 'Mahanadi Hostel',
+      );
+
+      expect(entries.length, equals(2));
+      for (final entry in entries) {
+        expect(entry.hostel, equals('Mahanadi Hostel'));
+      }
+
+      // Priya Sharma has 3250 XP, current user has 0 XP after reset -> Priya is #1, current user is #2
+      expect(entries[0].name, equals('Priya Sharma'));
+      expect(entries[0].rank, equals(1));
+      expect(entries[1].isCurrentUser, isTrue);
+      expect(entries[1].rank, equals(2));
+    });
+
+    test('Inter-College filtering: filters by specific college accurately', () {
+      // Filter strictly by 'NIT Rourkela' (Ananya Nayak, 4800 XP)
+      final entries = leaderboardService.getEntries(
+        mode: LeaderboardMode.interCollege,
+        collegeFilter: 'NIT Rourkela',
+      );
+
+      expect(entries.length, equals(1));
+      expect(entries.first.name, equals('Ananya Nayak'));
+      expect(entries.first.college, equals('NIT Rourkela'));
+      expect(entries.first.rank, equals(1));
+    });
+
+    test('Deterministic demo data: repeated calls produce identical ranking and data', () {
+      final run1 = leaderboardService.getEntries(mode: LeaderboardMode.interHostel);
+      final run2 = leaderboardService.getEntries(mode: LeaderboardMode.interHostel);
+
+      expect(run1.length, equals(run2.length));
+      for (int i = 0; i < run1.length; i++) {
+        expect(run1[i].id, equals(run2[i].id));
+        expect(run1[i].name, equals(run2[i].name));
+        expect(run1[i].xp, equals(run2[i].xp));
+        expect(run1[i].hostel, equals(run2[i].hostel));
+        expect(run1[i].college, equals(run2[i].college));
+        expect(run1[i].rank, equals(run2[i].rank));
+      }
+    });
+
+    test('Dynamic user hostel integration: reflects user profile hostel updates', () async {
+      await userService.updateFields(hostel: 'Brahmaputra Hall');
+
+      final userEntry = leaderboardService.getCurrentUserEntry(
+        mode: LeaderboardMode.interHostel,
+      );
+
+      expect(userEntry.hostel, equals('Brahmaputra Hall'));
+    });
+
+    test('Available hostel and college lists contain distinct options including All', () {
+      final hostels = leaderboardService.getAvailableHostels();
+      expect(hostels, contains('All'));
+      expect(hostels, contains('Mahanadi Hostel'));
+      expect(hostels, contains('Brahmaputra Hall'));
+      expect(hostels, contains('Sarojini Naidu Hall'));
+
+      final colleges = leaderboardService.getAvailableColleges();
+      expect(colleges, contains('All'));
+      expect(colleges, contains('NIT Rourkela'));
+      expect(colleges, contains('GCEK Kalahandi'));
     });
   });
 }

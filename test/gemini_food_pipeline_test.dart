@@ -199,9 +199,29 @@ void main() {
       expect(service.modelName, equals('gemini-3.5-flash-lite'));
     });
 
-    test('3. FoodRecognitionService produces multi-item meal detection (Rice, Dal, Chicken Curry)', () async {
+    test('2b. LocalFoodMatcher never defaults generic words like curry to Chicken Curry', () {
+      // Generic descriptors must return null, NOT food_chicken
+      expect(LocalFoodMatcher.match('curry'), isNull);
+      expect(LocalFoodMatcher.match('Curry'), isNull);
+      expect(LocalFoodMatcher.match('gravy'), isNull);
+      expect(LocalFoodMatcher.match('dish'), isNull);
+      expect(LocalFoodMatcher.match('Indian Curry'), isNull);
+
+      // Legitimate curries must resolve to their correct specific foods
+      expect(LocalFoodMatcher.match('Chicken Curry')?.id, equals('food_chicken'));
+      expect(LocalFoodMatcher.match('Veg Curry')?.id, equals('food_vegetables'));
+      expect(LocalFoodMatcher.match('Vegetable Curry')?.id, equals('food_vegetables'));
+      expect(LocalFoodMatcher.match('Egg Curry')?.id, equals('food_egg_curry'));
+      expect(LocalFoodMatcher.match('Paneer Curry')?.id, equals('food_paneer'));
+      expect(LocalFoodMatcher.match('Fish Curry')?.id, equals('food_fish'));
+      expect(LocalFoodMatcher.match('Potato Curry')?.id, equals('food_potato_curry'));
+      expect(LocalFoodMatcher.match('Mushroom Curry')?.id, equals('food_mushroom_curry'));
+    });
+
+    test('3. FoodRecognitionService produces multi-item meal detection (Rice, Dal, Chicken Curry) in mock mode', () async {
       const recognitionService = FoodRecognitionService(
         simulatedDelay: Duration.zero,
+        enableMockFallback: true,
       );
 
       final result = await recognitionService.analyzeImage('/test/meal.jpg');
@@ -224,6 +244,21 @@ void main() {
 
       expect(result.detectedItems[2].label, equals('Dal'));
       expect(result.detectedItems[2].matchedFoodItem?.id, equals('food_dal'));
+    });
+
+    test('3b. FoodRecognitionService default offline mode does not hallucinate Chicken Curry', () async {
+      const recognitionService = FoodRecognitionService(
+        simulatedDelay: Duration.zero,
+      );
+
+      final result = await recognitionService.analyzeImage('/test/unrecognized.jpg');
+
+      expect(result.detectedLabel, isNot(equals('Chicken Curry')));
+      expect(result.detectedLabel, isEmpty);
+      expect(result.matchedFoodItem, isNull);
+      expect(result.hasMatchedFoodItem, isFalse);
+      expect(result.isLiveAi, isFalse);
+      expect(result.isOfflineFallback, isTrue);
     });
 
     test('4. copyWithSelectedPrimary allows seamlessly switching active dish on plate', () {
@@ -259,6 +294,195 @@ void main() {
       expect(switched.detectedLabel, equals('Rice'));
       expect(switched.matchedFoodItem?.id, equals('food_rice'));
       expect(switched.confidence, equals(0.91));
+    });
+
+    test('5. GeminiVisionService key configuration, precedence, and sanitization', () {
+      // Strips accidental quotes and whitespace
+      expect(GeminiVisionService.sanitizeApiKey('  "mock_test_key_123"  '), equals('mock_test_key_123'));
+      expect(GeminiVisionService.sanitizeApiKey("  'mock_test_key_456'  "), equals('mock_test_key_456'));
+      expect(GeminiVisionService.sanitizeApiKey('mock_plain_key'), equals('mock_plain_key'));
+
+      // Runtime key precedence over compile-time define
+      const service = GeminiVisionService(apiKey: 'base_key');
+      expect(service.effectiveApiKey, equals('base_key'));
+      expect(service.isConfigured, isTrue);
+
+      GeminiVisionService.runtimeApiKey = 'runtime_override_key';
+      expect(service.effectiveApiKey, equals('runtime_override_key'));
+
+      // Reset
+      GeminiVisionService.runtimeApiKey = null;
+      expect(service.effectiveApiKey, equals('base_key'));
+    });
+
+    test('6. GeminiVisionService error categorization and secret masking', () {
+      const model = 'gemini-3.5-flash-lite';
+      const key = 'test_mock_secret_key_999';
+
+      // 401 / 403 Invalid API key
+      final err401 = GeminiVisionService.categorizeError(
+        'GenerativeAIException: [403 Forbidden] API_KEY_INVALID: key is not valid',
+        model,
+        key,
+      );
+      expect(err401, contains('HTTP 401/403'));
+      expect(err401, isNot(contains(key)));
+
+      // 404 Model Not Found
+      final err404 = GeminiVisionService.categorizeError(
+        'GenerativeAIException: [404 Not Found] models/gemini-1.5-flash not found',
+        'gemini-1.5-flash',
+        key,
+      );
+      expect(err404, contains('HTTP 404'));
+      expect(err404, contains('gemini-1.5-flash'));
+
+      // 429 Rate Limit / Quota
+      final err429 = GeminiVisionService.categorizeError(
+        'GenerativeAIException: [429 Too Many Requests] RESOURCE_EXHAUSTED',
+        model,
+        key,
+      );
+      expect(err429, contains('HTTP 429'));
+
+      // 400 Bad Request
+      final err400 = GeminiVisionService.categorizeError(
+        'GenerativeAIException: [400 Bad Request] INVALID_ARGUMENT',
+        model,
+        key,
+      );
+      expect(err400, contains('HTTP 400'));
+
+      // Network / Connectivity
+      final netErr = GeminiVisionService.categorizeError(
+        'SocketException: Failed host lookup: generativelanguage.googleapis.com',
+        model,
+        key,
+      );
+      expect(netErr, contains('Network error'));
+
+      // Timeout
+      final timeoutErr = GeminiVisionService.categorizeError(
+        'TimeoutException after 0:00:18.000000: Future not completed',
+        model,
+        key,
+      );
+      expect(timeoutErr, contains('Network timeout'));
+      expect(timeoutErr, contains('select manually'));
+
+      // General error with sensitive token redacted
+      final genErr = GeminiVisionService.categorizeError(
+        'Something broke with key $key and key=test_mock_secret_key_999',
+        model,
+        key,
+      );
+      expect(genErr, isNot(contains(key)));
+      expect(genErr, contains('[REDACTED_KEY]'));
+    });
+
+    test('7. GeminiVisionService response parsing (strict JSON, markdown blocks, conversational preambles)', () {
+      const service = GeminiVisionService();
+
+      // Markdown fenced JSON
+      const markdownJson = '''
+```json
+{
+  "items": [
+    {
+      "name": "Dalma",
+      "confidence": 0.94
+    },
+    {
+      "name": "Steamed Rice",
+      "confidence": 0.92
+    }
+  ]
+}
+```
+''';
+      final parsed = service.parseGeminiResponse(markdownJson, '/test/photo.jpg');
+      expect(parsed, isNotNull);
+      expect(parsed!.detectedLabel, equals('Dalma'));
+      expect(parsed.matchedFoodItem?.id, equals('food_dalma'));
+      expect(parsed.detectedItems.length, equals(2));
+      expect(parsed.detectedItems[1].matchedFoodItem?.id, equals('food_rice'));
+
+      // Conversational preamble and postamble around raw JSON
+      const conversationalJson = '''
+Here is the nutrition analysis for your hostel plate:
+{
+  "items": [
+    {
+      "name": "Pakhala",
+      "confidence": 0.96
+    }
+  ]
+}
+Enjoy your meal!
+''';
+      final parsedConv = service.parseGeminiResponse(conversationalJson, '/test/photo.jpg');
+      expect(parsedConv, isNotNull);
+      expect(parsedConv!.detectedLabel, equals('Pakhala'));
+      expect(parsedConv.matchedFoodItem?.id, equals('food_pakhala'));
+
+      // Single item object without "items" key
+      const singleItemJson = '{"name": "Roti", "confidence": 0.91}';
+      final parsedSingle = service.parseGeminiResponse(singleItemJson, '/test/photo.jpg');
+      expect(parsedSingle, isNotNull);
+      expect(parsedSingle!.detectedLabel, equals('Roti'));
+      expect(parsedSingle.matchedFoodItem?.id, equals('food_roti'));
+
+      // Multi-item where 1st is unrecognised, but 2nd matches verified database
+      const mixedItemsJson = '''
+{
+  "items": [
+    {
+      "name": "Exotic Garnish Salad Bowl",
+      "confidence": 0.99
+    },
+    {
+      "name": "Chicken Curry",
+      "confidence": 0.88
+    }
+  ]
+}
+''';
+      final parsedMixed = service.parseGeminiResponse(mixedItemsJson, '/test/photo.jpg');
+      expect(parsedMixed, isNotNull);
+      // Prefers the verified local database match as primary
+      expect(parsedMixed!.detectedLabel, equals('Chicken Curry'));
+      expect(parsedMixed.matchedFoodItem?.id, equals('food_chicken'));
+      expect(parsedMixed.detectedItems.length, equals(2));
+
+      // Empty items list produces informative diagnostic error
+      expect(service.parseGeminiResponse('{"items": []}', '/test/photo.jpg'), isNull);
+      expect(
+        GeminiVisionService.lastApiError,
+        contains('No food items detected in the image'),
+      );
+
+      // Empty or invalid JSON returns null safely
+      expect(service.parseGeminiResponse('', '/test/photo.jpg'), isNull);
+      expect(service.parseGeminiResponse('not a json', '/test/photo.jpg'), isNull);
+    });
+
+    test('8. FoodRecognitionResult copyWithManualFood cleanly switches food item', () {
+      final chicken = LocalFoodDatabase.getFoodById('food_chicken')!;
+      final dalma = LocalFoodDatabase.getFoodById('food_dalma')!;
+
+      final initial = FoodRecognitionResult(
+        detectedLabel: 'Chicken Curry',
+        confidence: 0.95,
+        matchedFoodItem: chicken,
+        analyzedAt: DateTime.now(),
+        isLiveAi: true,
+      );
+
+      final manualUpdated = initial.copyWithManualFood(dalma);
+      expect(manualUpdated.detectedLabel, equals(dalma.name));
+      expect(manualUpdated.matchedFoodItem?.id, equals('food_dalma'));
+      expect(manualUpdated.confidence, equals(1.0));
+      expect(manualUpdated.isLiveAi, isTrue);
     });
   });
 
@@ -302,6 +526,49 @@ void main() {
 
         // Active food updates to Rice (195 kcal baseline)
         expect(find.text('195 kcal'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'FoodScanReviewScreen opens change dish sheet and updates selected food',
+      (WidgetTester tester) async {
+        final chicken = LocalFoodDatabase.getFoodById('food_chicken')!;
+
+        final scanResult = FoodRecognitionResult(
+          detectedLabel: 'Chicken Curry',
+          confidence: 0.94,
+          matchedFoodItem: chicken,
+          analyzedAt: DateTime.now(),
+        );
+
+        await tester.pumpWidget(
+          MaterialApp(home: FoodScanReviewScreen(scanResult: scanResult)),
+        );
+        await tester.pumpAndSettle();
+
+        // Initially shows 245 kcal
+        expect(find.text('245 kcal'), findsOneWidget);
+
+        // Tap 'Change dish'
+        final changeDishBtn = find.text('Change dish');
+        expect(changeDishBtn, findsOneWidget);
+        await tester.tap(changeDishBtn);
+        await tester.pumpAndSettle();
+
+        // Sheet opens
+        expect(find.text('Select Dish from 101 Foods'), findsOneWidget);
+
+        // Tap 'Pakhala' ListTile in the sheet list
+        final pakhalaTile =
+            find.widgetWithText(ListTile, 'Pakhala (Fermented Curd Rice)');
+        expect(pakhalaTile, findsOneWidget);
+        await tester.ensureVisible(pakhalaTile);
+        await tester.tap(pakhalaTile);
+        await tester.pumpAndSettle();
+
+        // Sheet closed and preview is updated to Pakhala (210 kcal)
+        expect(find.text('Select Dish from 101 Foods'), findsNothing);
+        expect(find.text('210 kcal'), findsOneWidget);
       },
     );
   });

@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 
+import 'core/services/adaptive_difficulty_service.dart';
 import 'core/services/community_service.dart';
 import 'core/services/daily_stats_service.dart';
 import 'core/services/gamification_service.dart';
 import 'core/services/nutrition_service.dart';
 import 'core/services/storage_service.dart';
 import 'core/services/user_service.dart';
+import 'core/services/weekly_quest_service.dart';
 import 'core/theme/app_colors.dart';
 import 'core/theme/app_theme.dart';
 import 'screens/main_navigation_screen.dart';
@@ -24,7 +26,7 @@ Future<void> main() async {
     ),
   );
 
-  // Initialize storage service, user service, daily stats service, nutrition service, gamification service, and community service
+  // Initialize storage service, user service, daily stats service, nutrition service, gamification service, community service, and adaptive difficulty service
   try {
     await StorageService.instance.init();
     await UserService.instance.init();
@@ -32,7 +34,12 @@ Future<void> main() async {
     await NutritionService.instance.init();
     await DailyStatsService.instance.syncNutritionFromService();
     await GamificationService.instance.init();
+    await GamificationService.instance.syncChallengesFromDailyStats(
+      DailyStatsService.instance.todayStats,
+    );
     await CommunityService.instance.init();
+    await AdaptiveDifficultyService.instance.init();
+    await WeeklyQuestService.instance.init();
   } catch (e) {
     debugPrint('Service initialization error: $e');
   }

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
 
@@ -175,19 +176,29 @@ class PushUpLandmarks {
 
 /// Dedicated modular service for on-device ML Kit pose detection.
 class PoseDetectionService {
-  PoseDetectionService({PoseDetectorOptions? options})
-    : _poseDetector = PoseDetector(
-        options:
-            options ??
-            PoseDetectorOptions(
-              mode: PoseDetectionMode.stream,
-              model: PoseDetectionModel.base,
-            ),
-      );
+  PoseDetectionService({
+    PoseDetectorOptions? options,
+    this.stalenessTimeout = defaultStalenessTimeout,
+  }) : _poseDetector = PoseDetector(
+         options:
+             options ??
+             PoseDetectorOptions(
+               mode: PoseDetectionMode.stream,
+               model: PoseDetectionModel.base,
+             ),
+       );
+
+  /// Default threshold after which unrefreshed skeleton landmarks are automatically cleared.
+  static const Duration defaultStalenessTimeout = Duration(milliseconds: 350);
+  final Duration stalenessTimeout;
 
   final PoseDetector _poseDetector;
   bool _isBusy = false;
+  bool _isDisposed = false;
   int _frameCount = 0;
+  int _activeEpoch = 0;
+  Timer? _stalenessTimer;
+  Uint8List? _cachedNv21Buffer;
 
   final ValueNotifier<SquatLandmarks?> squatLandmarksNotifier =
       ValueNotifier<SquatLandmarks?>(null);
@@ -200,14 +211,17 @@ class PoseDetectionService {
   );
 
   bool get isBusy => _isBusy;
+  bool get isDisposed => _isDisposed;
 
   /// Process a camera stream frame and extract squat landmarks.
+  /// Drops incoming frames while a detection is already in flight.
   Future<SquatLandmarks?> processCameraImage({
     required CameraImage image,
     required CameraDescription camera,
   }) async {
-    if (_isBusy) return null;
+    if (_isDisposed || _isBusy) return null;
     _isBusy = true;
+    final int currentEpoch = _activeEpoch;
     _frameCount++;
     final bool shouldLog = _frameCount % 30 == 1;
 
@@ -220,11 +234,15 @@ class PoseDetectionService {
             'format raw=${image.format.raw}, planes=${image.planes.length}',
           );
         }
-        _isBusy = false;
         return null;
       }
 
       final List<Pose> poses = await _poseDetector.processImage(inputImage);
+
+      // Guard against stale asynchronous results if stream stopped, cleared, or disposed
+      if (_isDisposed || currentEpoch != _activeEpoch) {
+        return null;
+      }
 
       if (poses.isEmpty) {
         if (shouldLog) {
@@ -233,10 +251,10 @@ class PoseDetectionService {
             'but NO poses detected by ML Kit. Stand in full view of camera.',
           );
         }
+        _cancelStalenessTimer();
         poseStatusNotifier.value = 'Step into frame';
         squatLandmarksNotifier.value = null;
         pushUpLandmarksNotifier.value = null;
-        _isBusy = false;
         return null;
       }
 
@@ -245,6 +263,7 @@ class PoseDetectionService {
       final pushUpLandmarks = extractPushUpLandmarks(pose);
       squatLandmarksNotifier.value = squatLandmarks;
       pushUpLandmarksNotifier.value = pushUpLandmarks;
+      _restartStalenessTimer();
 
       if (shouldLog) {
         debugPrint(
@@ -263,14 +282,44 @@ class PoseDetectionService {
         poseStatusNotifier.value = 'Position knees & hips in view';
       }
 
-      _isBusy = false;
       return squatLandmarks;
     } catch (e, stack) {
       debugPrint(
         '[GENFIT POSE EXCEPTION] Error in processCameraImage: $e\n$stack',
       );
-      _isBusy = false;
       return null;
+    } finally {
+      _isBusy = false;
+    }
+  }
+
+  void _restartStalenessTimer() {
+    _stalenessTimer?.cancel();
+    if (_isDisposed) return;
+    _stalenessTimer = Timer(stalenessTimeout, _onTrackingStale);
+  }
+
+  void _cancelStalenessTimer() {
+    _stalenessTimer?.cancel();
+    _stalenessTimer = null;
+  }
+
+  void _onTrackingStale() {
+    if (_isDisposed) return;
+    squatLandmarksNotifier.value = null;
+    pushUpLandmarksNotifier.value = null;
+    poseStatusNotifier.value = 'Step into frame';
+  }
+
+  /// Clears active landmarks, invalidates any in-flight asynchronous detections,
+  /// and resets the pose status.
+  void clearLandmarks() {
+    _cancelStalenessTimer();
+    _activeEpoch++;
+    if (!_isDisposed) {
+      squatLandmarksNotifier.value = null;
+      pushUpLandmarksNotifier.value = null;
+      poseStatusNotifier.value = 'Ready';
     }
   }
 
@@ -354,9 +403,10 @@ class PoseDetectionService {
         // Semi-planar NV21: Plane 0 = Y, Plane 1 = VU
         final yPlane = image.planes[0];
         final uvPlane = image.planes[1];
-        final combined = Uint8List(yPlane.bytes.length + uvPlane.bytes.length);
+        final int totalLength = yPlane.bytes.length + uvPlane.bytes.length;
+        final combined = _getOrCreateNv21Buffer(totalLength);
         combined.setRange(0, yPlane.bytes.length, yPlane.bytes);
-        combined.setRange(yPlane.bytes.length, combined.length, uvPlane.bytes);
+        combined.setRange(yPlane.bytes.length, totalLength, uvPlane.bytes);
         nv21Bytes = combined;
         bytesPerRow = yPlane.bytesPerRow;
       } else {
@@ -392,24 +442,34 @@ class PoseDetectionService {
     }
   }
 
-  /// Converts a multi-planar Android YUV_420_888 [CameraImage] into contiguous NV21 byte buffer.
-  static Uint8List _convertYuv420ToNv21(CameraImage image) {
+  Uint8List _getOrCreateNv21Buffer(int requiredSize) {
+    if (_cachedNv21Buffer == null || _cachedNv21Buffer!.length != requiredSize) {
+      _cachedNv21Buffer = Uint8List(requiredSize);
+    }
+    return _cachedNv21Buffer!;
+  }
+
+  /// Converts a multi-planar Android YUV_420_888 [CameraImage] into contiguous NV21 byte buffer
+  /// using cached memory allocation and native bulk row copies to avoid GC pressure.
+  Uint8List _convertYuv420ToNv21(CameraImage image) {
     final int width = image.width;
     final int height = image.height;
     final int ySize = width * height;
     final int uvSize = width * height ~/ 2;
-    final Uint8List nv21 = Uint8List(ySize + uvSize);
+    final Uint8List nv21 = _getOrCreateNv21Buffer(ySize + uvSize);
 
-    // 1. Copy Y plane, removing row padding if present
+    // 1. Copy Y plane using fast native block copies
     final Plane yPlane = image.planes[0];
     final Uint8List yBuffer = yPlane.bytes;
     final int yRowStride = yPlane.bytesPerRow;
 
-    int nv21Index = 0;
-    for (int row = 0; row < height; row++) {
-      final int rowStart = row * yRowStride;
-      for (int col = 0; col < width; col++) {
-        nv21[nv21Index++] = yBuffer[rowStart + col];
+    if (yRowStride == width) {
+      nv21.setRange(0, ySize, yBuffer);
+    } else {
+      for (int row = 0; row < height; row++) {
+        final int rowStart = row * yRowStride;
+        final int dstStart = row * width;
+        nv21.setRange(dstStart, dstStart + width, yBuffer, rowStart);
       }
     }
 
@@ -424,10 +484,13 @@ class PoseDetectionService {
     final int uPixelStride = uPlane.bytesPerPixel ?? 1;
     final int vPixelStride = vPlane.bytesPerPixel ?? 1;
 
-    for (int row = 0; row < height ~/ 2; row++) {
+    int nv21Index = ySize;
+    final int halfHeight = height ~/ 2;
+    final int halfWidth = width ~/ 2;
+    for (int row = 0; row < halfHeight; row++) {
       final int uRowStart = row * uRowStride;
       final int vRowStart = row * vRowStride;
-      for (int col = 0; col < width ~/ 2; col++) {
+      for (int col = 0; col < halfWidth; col++) {
         final int uIndex = uRowStart + col * uPixelStride;
         final int vIndex = vRowStart + col * vPixelStride;
         nv21[nv21Index++] = vBuffer[vIndex];
@@ -439,7 +502,11 @@ class PoseDetectionService {
   }
 
   void dispose() {
-    _poseDetector.close();
+    _isDisposed = true;
+    _cancelStalenessTimer();
+    _activeEpoch++;
+    unawaited(_poseDetector.close().catchError((_) {}));
+    _cachedNv21Buffer = null;
     squatLandmarksNotifier.dispose();
     pushUpLandmarksNotifier.dispose();
     poseStatusNotifier.dispose();

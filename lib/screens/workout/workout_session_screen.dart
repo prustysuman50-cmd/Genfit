@@ -98,10 +98,10 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen> {
         widget.pushUpAnalysisService ?? PushUpAnalysisService();
 
     _poseDetectionService.squatLandmarksNotifier.addListener(
-      _onLandmarksUpdated,
+      _onSquatLandmarksUpdated,
     );
     _poseDetectionService.pushUpLandmarksNotifier.addListener(
-      _onLandmarksUpdated,
+      _onPushUpLandmarksUpdated,
     );
     _poseDetectionService.poseStatusNotifier.addListener(_onPoseStatusUpdated);
     _squatAnalysisService.repCountNotifier.addListener(_onSquatRepCountChanged);
@@ -126,10 +126,10 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen> {
     _timer?.cancel();
     _completeWorkoutSession();
     _poseDetectionService.squatLandmarksNotifier.removeListener(
-      _onLandmarksUpdated,
+      _onSquatLandmarksUpdated,
     );
     _poseDetectionService.pushUpLandmarksNotifier.removeListener(
-      _onLandmarksUpdated,
+      _onPushUpLandmarksUpdated,
     );
     _poseDetectionService.poseStatusNotifier.removeListener(
       _onPoseStatusUpdated,
@@ -162,21 +162,29 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen> {
     super.dispose();
   }
 
-  void _onLandmarksUpdated() {
+  void _onSquatLandmarksUpdated() {
     if (!mounted) return;
     final squatLandmarks = _poseDetectionService.squatLandmarksNotifier.value;
-    final pushUpLandmarks = _poseDetectionService.pushUpLandmarksNotifier.value;
+    if (identical(_currentLandmarks, squatLandmarks)) return;
     setState(() {
       _currentLandmarks = squatLandmarks;
+    });
+
+    if (_isStarted && _selectedExercise.id == 'ex_squats') {
+      _squatAnalysisService.processLandmarks(squatLandmarks);
+    }
+  }
+
+  void _onPushUpLandmarksUpdated() {
+    if (!mounted) return;
+    final pushUpLandmarks = _poseDetectionService.pushUpLandmarksNotifier.value;
+    if (identical(_currentPushUpLandmarks, pushUpLandmarks)) return;
+    setState(() {
       _currentPushUpLandmarks = pushUpLandmarks;
     });
 
-    if (_isStarted) {
-      if (_selectedExercise.id == 'ex_squats') {
-        _squatAnalysisService.processLandmarks(squatLandmarks);
-      } else if (_selectedExercise.id == 'ex_pushups') {
-        _pushUpAnalysisService.processLandmarks(pushUpLandmarks);
-      }
+    if (_isStarted && _selectedExercise.id == 'ex_pushups') {
+      _pushUpAnalysisService.processLandmarks(pushUpLandmarks);
     }
   }
 
@@ -311,6 +319,13 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen> {
 
   Future<void> _flipCamera() async {
     if (_availableCameras.length < 2) return;
+    _poseDetectionService.clearLandmarks();
+    if (mounted) {
+      setState(() {
+        _currentLandmarks = null;
+        _currentPushUpLandmarks = null;
+      });
+    }
     _selectedCameraIndex =
         (_selectedCameraIndex + 1) % _availableCameras.length;
     await _setupCameraController(_availableCameras[_selectedCameraIndex]);
@@ -349,6 +364,14 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen> {
       await _cameraController!.stopImageStream();
     } catch (e) {
       debugPrint('GENFIT: Failed to stop image stream: $e');
+    } finally {
+      _poseDetectionService.clearLandmarks();
+      if (mounted) {
+        setState(() {
+          _currentLandmarks = null;
+          _currentPushUpLandmarks = null;
+        });
+      }
     }
   }
 
@@ -360,6 +383,9 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen> {
         _formStatus = 'Ready';
         _timer?.cancel();
         _completeWorkoutSession();
+        _poseDetectionService.clearLandmarks();
+        _currentLandmarks = null;
+        _currentPushUpLandmarks = null;
       } else {
         // Start session
         _isStarted = true;
@@ -401,8 +427,11 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen> {
 
   void _selectExercise(Exercise exercise) {
     if (_selectedExercise.id == exercise.id) return;
+    _poseDetectionService.clearLandmarks();
     setState(() {
       _selectedExercise = exercise;
+      _currentLandmarks = null;
+      _currentPushUpLandmarks = null;
       _repCount = 0;
       _secondsElapsed = 0;
       _isStarted = false;

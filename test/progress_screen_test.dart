@@ -69,7 +69,7 @@ void main() {
 
       // 3. Weekly Overview Grid
       expect(find.text('Weekly Overview'), findsOneWidget);
-      expect(find.text('Workouts'), findsOneWidget);
+      expect(find.text('Workouts'), findsWidgets);
       expect(find.text('Steps'), findsOneWidget);
       expect(find.text('Active Calories'), findsOneWidget);
       expect(find.text('Active Minutes'), findsOneWidget);

@@ -11,6 +11,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../models/progress/progress_summary.dart';
 import '../../models/progress/recommendation_item.dart';
+import '../gamification/widgets/achievement_gallery_card.dart';
 
 class ProgressScreen extends StatelessWidget {
   const ProgressScreen({super.key});
@@ -818,74 +819,7 @@ class ProgressScreen extends StatelessWidget {
 
   /// 6. Achievements Badges Section
   Widget _buildBadgesSection(GamificationService gamification) {
-    final badges = gamification.badges;
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceDark,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.dividerDark),
-      ),
-      child: Wrap(
-        spacing: 12,
-        runSpacing: 12,
-        children: badges.map((badge) {
-          final isUnlocked = badge.isUnlocked;
-
-          return Container(
-            width: 95,
-            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-            decoration: BoxDecoration(
-              color: isUnlocked
-                  ? AppColors.primary.withValues(alpha: 0.15)
-                  : AppColors.surfaceElevatedDark.withValues(alpha: 0.5),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: isUnlocked
-                    ? AppColors.brightPurple.withValues(alpha: 0.5)
-                    : AppColors.cardBorderDark,
-                width: isUnlocked ? 1.2 : 0.8,
-              ),
-              boxShadow: isUnlocked
-                  ? [
-                      BoxShadow(
-                        color: AppColors.purpleGlow.withValues(alpha: 0.15),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ]
-                  : null,
-            ),
-            child: Column(
-              children: [
-                Icon(
-                  badge.icon,
-                  size: 26,
-                  color: isUnlocked
-                      ? AppColors.accentYellow
-                      : AppColors.textMutedDark,
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  badge.name,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    color: isUnlocked
-                        ? AppColors.textPrimaryDark
-                        : AppColors.textMutedDark,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          );
-        }).toList(),
-      ),
-    );
+    return AchievementGalleryCard(gamification: gamification);
   }
 
   /// 7. Recent Activity Timeline Section

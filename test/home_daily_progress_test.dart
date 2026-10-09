@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genfit/core/services/daily_stats_service.dart';
 import 'package:genfit/core/services/nutrition_service.dart';
+import 'package:genfit/core/services/step_tracking_service.dart';
 import 'package:genfit/core/theme/app_theme.dart';
 import 'package:genfit/data/local_food_database.dart';
 import 'package:genfit/models/daily_metric.dart';
@@ -24,13 +25,17 @@ void main() {
 
     statsService.setCustomStoragePath(tempStatsDir.path);
     nutritionService.setCustomStoragePath(tempNutrDir.path);
+    StepTrackingService.instance.setCustomStoragePath(tempStatsDir.path);
+    StepTrackingService.instance.setPlatformSensorEnabled(false);
 
     await statsService.resetToDefaults();
     await nutritionService.resetToDefaults();
+    await StepTrackingService.instance.resetToDefaults();
   });
 
   tearDown(() {
     statsService.detachNutritionListener();
+    StepTrackingService.instance.setCustomStoragePath(null);
     try {
       if (tempStatsDir.existsSync()) {
         tempStatsDir.deleteSync(recursive: true);
@@ -115,47 +120,57 @@ void main() {
       expect(statsService.todayStats.waterMl, 250);
     });
 
-    testWidgets('3. Step logging updates Home Daily Progress reactively', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        MaterialApp(theme: AppTheme.darkTheme, home: const HomeScreen()),
-      );
-      await tester.pumpAndSettle();
+    testWidgets(
+      '3. Step logging and sensor updates reflect on Home Daily Progress reactively',
+      (tester) async {
+        await tester.pumpWidget(
+          MaterialApp(theme: AppTheme.darkTheme, home: const HomeScreen()),
+        );
+        await tester.pumpAndSettle();
 
-      final card = find.byType(DailyProgressCard);
-      expect(
-        find.descendant(of: card, matching: find.text('0')),
-        findsOneWidget,
-      );
-      expect(
-        find.descendant(of: card, matching: find.text('0 kcal')),
-        findsOneWidget,
-      );
+        final card = find.byType(DailyProgressCard);
+        expect(
+          find.descendant(of: card, matching: find.text('0')),
+          findsOneWidget,
+        );
 
-      // Tap the + button on the steps gauge
-      final stepAddButton = find.descendant(
-        of: card,
-        matching: find.byIcon(Icons.add),
-      );
-      expect(stepAddButton, findsOneWidget);
-      await tester.ensureVisible(stepAddButton);
-      await tester.pumpAndSettle();
-      await tester.tap(stepAddButton);
-      await tester.pumpAndSettle();
+        // In Live mode, tapping the step action opens the Hardware Step Tracking dialog
+        final stepAddButton = find.descendant(
+          of: card,
+          matching: find.byIcon(Icons.add),
+        );
+        expect(stepAddButton, findsOneWidget);
+        await tester.ensureVisible(stepAddButton);
+        await tester.pumpAndSettle();
+        await tester.tap(stepAddButton);
+        await tester.pumpAndSettle();
 
-      // +250 steps and +12 kcal burned reflected
-      expect(
-        find.descendant(of: card, matching: find.text('250')),
-        findsOneWidget,
-      );
-      expect(
-        find.descendant(of: card, matching: find.text('12 kcal')),
-        findsOneWidget,
-      );
-      expect(statsService.todayStats.steps, 250);
-      expect(statsService.todayStats.caloriesBurned, 12);
-    });
+        expect(find.text('Hardware Step Tracking'), findsOneWidget);
+
+        // Close dialog
+        await tester.tap(find.text('Close'));
+        await tester.pumpAndSettle();
+
+        // Hardware sensor processes 250 steps
+        final now = DateTime.now();
+        await StepTrackingService.instance.processRawSensorReading(
+          10000,
+          now: now,
+        );
+        await StepTrackingService.instance.processRawSensorReading(
+          10250,
+          now: now,
+        );
+        await tester.pumpAndSettle();
+
+        // +250 steps reflected on card
+        expect(
+          find.descendant(of: card, matching: find.text('250')),
+          findsOneWidget,
+        );
+        expect(statsService.todayStats.steps, 250);
+      },
+    );
 
     testWidgets(
       '4. Nutrition changes are reflected in DailyStats and available to Home',

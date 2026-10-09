@@ -217,6 +217,18 @@ class LocalFoodMatcher {
     'mixed vegetables': 'food_vegetables',
     'bhaja': 'food_vegetables',
     'tarkari': 'food_vegetables',
+    'veg curry': 'food_vegetables',
+    'vegetable curry': 'food_vegetables',
+    'mixed veg curry': 'food_vegetables',
+    'mix veg curry': 'food_vegetables',
+    'mixed vegetable curry': 'food_vegetables',
+    'veg sabzi': 'food_vegetables',
+    'vegetable sabzi': 'food_vegetables',
+    'mix sabzi': 'food_vegetables',
+    'mix veg': 'food_vegetables',
+    'mixed veg': 'food_vegetables',
+    'vegetable tarkari': 'food_vegetables',
+    'veg tarkari': 'food_vegetables',
 
     'raita': 'food_raita',
     'boondi raita': 'food_raita',
@@ -593,6 +605,26 @@ class LocalFoodMatcher {
     return list;
   }();
 
+  /// Generic food descriptors that must NOT resolve to a specific dish via substring or blind search.
+  static const Set<String> _genericDescriptors = {
+    'curry',
+    'curries',
+    'gravy',
+    'gravies',
+    'dish',
+    'dishes',
+    'food',
+    'foods',
+    'meal',
+    'meals',
+    'plate',
+    'plates',
+    'bowl',
+    'bowls',
+    'item',
+    'items',
+  };
+
   /// Matches a dish label (e.g., from Gemini Vision) to a verified [FoodItem].
   ///
   /// Returns `null` if no plausible match is found.
@@ -617,29 +649,51 @@ class LocalFoodMatcher {
       }
     }
 
-    // 3. Name or regional tag containment in LocalFoodDatabase
+    // Never allow generic single-word descriptors (e.g., "curry", "gravy", "dish")
+    // to map to the first database item (e.g. Chicken Curry) via broad substring or search.
+    if (_genericDescriptors.contains(clean)) {
+      return null;
+    }
+
+    // 3. Exact database name or component match
     for (final food in LocalFoodDatabase.foods) {
       final foodNameClean = _normalize(food.name);
-      if (clean == foodNameClean ||
-          (clean.length >= 4 &&
-              (clean.contains(foodNameClean) ||
-                  foodNameClean.contains(clean)))) {
+      // Exact full name match
+      if (clean == foodNameClean) {
         return food;
       }
-      for (final tag in food.regionalTags) {
-        final tagClean = _normalize(tag);
-        if (clean == tagClean ||
-            (clean.length >= 4 &&
-                (clean.contains(tagClean) || tagClean.contains(clean)))) {
-          return food;
+      // Match primary name before parenthesis (e.g. "Chicken" from "Chicken (Desi Chicken Curry)")
+      final primaryClean = _normalize(food.name.split('(').first);
+      if (clean == primaryClean) {
+        return food;
+      }
+      // Match names inside parenthesis (e.g. "Desi Chicken Curry")
+      if (food.name.contains('(') && food.name.contains(')')) {
+        final parenContent = food.name.split('(')[1].split(')')[0];
+        for (final subPart in parenContent.split('/')) {
+          if (clean == _normalize(subPart)) {
+            return food;
+          }
         }
       }
     }
 
-    // 4. Fallback search query
-    final searchMatches = LocalFoodDatabase.searchFoods(clean);
-    if (searchMatches.isNotEmpty) {
-      return searchMatches.first;
+    // 4. Substring containment ONLY for specific multi-word phrases (>= 2 words)
+    // to avoid generic single words (like "curry", "soup", "stew", "boiled") from matching the first database item.
+    final cleanWords = clean.split(' ').where((w) => w.isNotEmpty).toList();
+    if (cleanWords.length >= 2) {
+      for (final food in LocalFoodDatabase.foods) {
+        final foodNameClean = _normalize(food.name);
+        if (foodNameClean.contains(clean) || clean.contains(foodNameClean)) {
+          return food;
+        }
+      }
+
+      // 5. Fallback search query for multi-word non-generic queries
+      final searchMatches = LocalFoodDatabase.searchFoods(clean);
+      if (searchMatches.isNotEmpty) {
+        return searchMatches.first;
+      }
     }
 
     return null;

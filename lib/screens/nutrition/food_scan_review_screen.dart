@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../core/services/nutrition_service.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
+import '../../data/local_food_database.dart';
 import '../../models/nutrition/food_item.dart';
 import '../../models/nutrition/food_preparation_level.dart';
 import '../../models/nutrition/food_recognition_result.dart';
@@ -100,6 +101,154 @@ class _FoodScanReviewScreenState extends State<FoodScanReviewScreen> {
         ),
       );
     }
+  }
+
+  void _showChangeFoodSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF14141E),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        String query = '';
+        return StatefulBuilder(
+          builder: (sheetCtx, setSheetState) {
+            final foods = query.trim().isEmpty
+                ? LocalFoodDatabase.foods
+                : LocalFoodDatabase.searchFoods(query);
+            return Padding(
+              padding: EdgeInsets.only(
+                top: 16,
+                left: 16,
+                right: 16,
+                bottom: MediaQuery.of(sheetCtx).viewInsets.bottom + 16,
+              ),
+              child: SizedBox(
+                height: 420,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Select Dish from 101 Foods',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.textPrimaryDark,
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(
+                            Icons.close_rounded,
+                            color: AppColors.textMutedDark,
+                            size: 20,
+                          ),
+                          onPressed: () => Navigator.of(sheetCtx).pop(),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      autofocus: true,
+                      onChanged: (val) {
+                        setSheetState(() {
+                          query = val;
+                        });
+                      },
+                      style: const TextStyle(
+                        color: AppColors.textPrimaryDark,
+                        fontSize: 13,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: 'Search food (e.g. Rice, Dalma, Pakhala...)',
+                        hintStyle: const TextStyle(
+                          color: AppColors.textMutedDark,
+                          fontSize: 12,
+                        ),
+                        prefixIcon: const Icon(
+                          Icons.search_rounded,
+                          color: AppColors.primary,
+                          size: 18,
+                        ),
+                        filled: true,
+                        fillColor: AppColors.surfaceElevatedDark,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 10,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                            color: AppColors.cardBorderDark,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Expanded(
+                      child: ListView.separated(
+                        itemCount: foods.length,
+                        separatorBuilder: (context, index) => const Divider(
+                          color: AppColors.cardBorderDark,
+                          height: 1,
+                        ),
+                        itemBuilder: (_, index) {
+                          final item = foods[index];
+                          final isCurrent = item.id ==
+                              (_currentResult.matchedFoodItem?.id ?? '');
+                          return ListTile(
+                            dense: true,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
+                            title: Text(
+                              item.name,
+                              style: TextStyle(
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w700,
+                                color: isCurrent
+                                    ? AppColors.primary
+                                    : AppColors.textPrimaryDark,
+                              ),
+                            ),
+                            subtitle: Text(
+                              '${item.calories.toInt()} kcal • ${item.servingSize}',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: AppColors.textMutedDark,
+                              ),
+                            ),
+                            trailing: isCurrent
+                                ? const Icon(
+                                    Icons.check_circle_rounded,
+                                    color: AppColors.primary,
+                                    size: 18,
+                                  )
+                                : null,
+                            onTap: () {
+                              setState(() {
+                                _currentResult =
+                                    _currentResult.copyWithManualFood(item);
+                              });
+                              Navigator.of(sheetCtx).pop();
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   @override
@@ -270,14 +419,14 @@ class _FoodScanReviewScreenState extends State<FoodScanReviewScreen> {
                     color:
                         (_currentResult.isLiveAi
                                 ? AppColors.brightPurple
-                                : AppColors.primary)
+                                : AppColors.accentOrange)
                             .withValues(alpha: 0.18),
                     borderRadius: BorderRadius.circular(6),
                     border: Border.all(
                       color:
                           (_currentResult.isLiveAi
                                   ? AppColors.brightPurple
-                                  : AppColors.primary)
+                                  : AppColors.accentOrange)
                               .withValues(alpha: 0.35),
                       width: 0.8,
                     ),
@@ -286,11 +435,13 @@ class _FoodScanReviewScreenState extends State<FoodScanReviewScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
-                        Icons.auto_awesome_rounded,
+                        _currentResult.isLiveAi
+                            ? Icons.auto_awesome_rounded
+                            : Icons.science_outlined,
                         size: 11,
                         color: _currentResult.isLiveAi
                             ? AppColors.brightPurple
-                            : AppColors.primary,
+                            : AppColors.accentOrange,
                       ),
                       const SizedBox(width: 4),
                       Text(
@@ -327,6 +478,33 @@ class _FoodScanReviewScreenState extends State<FoodScanReviewScreen> {
                   style: AppTextStyles.bodySmall.copyWith(
                     color: AppColors.textMutedDark,
                     fontSize: 11,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                InkWell(
+                  onTap: _showChangeFoodSheet,
+                  borderRadius: BorderRadius.circular(6),
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 2),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.edit_outlined,
+                          size: 13,
+                          color: AppColors.primary,
+                        ),
+                        SizedBox(width: 4),
+                        Text(
+                          'Change dish',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
                 if (_currentResult.detectedItems.length > 1) ...[

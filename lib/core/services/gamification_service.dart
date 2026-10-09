@@ -4,23 +4,12 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import '../../models/challenge.dart';
+import '../../models/daily_stats.dart';
 import '../../models/gamification/badge_item.dart';
+import '../../models/gamification/campus_rank.dart';
 import '../../models/gamification/gamification_rewards.dart';
+import 'daily_stats_service.dart';
 import 'nutrition_service.dart';
-
-class _LevelTier {
-  final int level;
-  final int minXp;
-  final int maxXp;
-  final String title;
-
-  const _LevelTier({
-    required this.level,
-    required this.minXp,
-    required this.maxXp,
-    required this.title,
-  });
-}
 
 class GamificationService extends ChangeNotifier {
   GamificationService._();
@@ -29,15 +18,71 @@ class GamificationService extends ChangeNotifier {
 
   static const String _fileName = 'genfit_gamification.json';
 
-  static const List<_LevelTier> _levelTiers = [
-    _LevelTier(level: 1, minXp: 0, maxXp: 499, title: 'Campus Rookie'),
-    _LevelTier(level: 2, minXp: 500, maxXp: 1199, title: 'Hostel Hustler'),
-    _LevelTier(level: 3, minXp: 1200, maxXp: 2199, title: 'Fitness Seeker'),
-    _LevelTier(level: 4, minXp: 2200, maxXp: 3499, title: 'Campus Warrior'),
-    _LevelTier(level: 5, minXp: 3500, maxXp: 4999, title: 'Desi Beast'),
-    _LevelTier(level: 6, minXp: 5000, maxXp: 6999, title: 'Odisha Titan'),
-    _LevelTier(level: 7, minXp: 7000, maxXp: 9999, title: 'Campus Legend'),
-    _LevelTier(level: 8, minXp: 10000, maxXp: 999999, title: 'Grandmaster'),
+  static const List<CampusRankTier> levelTiers = [
+    CampusRankTier(
+      level: 1,
+      minXp: 0,
+      maxXp: 499,
+      title: 'Campus Rookie',
+      subtitle: 'Starting your college fitness journey',
+      icon: Icons.school_rounded,
+    ),
+    CampusRankTier(
+      level: 2,
+      minXp: 500,
+      maxXp: 1199,
+      title: 'Hostel Hustler',
+      subtitle: 'Building daily discipline in dorms & hostel rooms',
+      icon: Icons.hotel_rounded,
+    ),
+    CampusRankTier(
+      level: 3,
+      minXp: 1200,
+      maxXp: 2199,
+      title: 'Fitness Seeker',
+      subtitle: 'Consistent training between lectures and mess',
+      icon: Icons.fitness_center_rounded,
+    ),
+    CampusRankTier(
+      level: 4,
+      minXp: 2200,
+      maxXp: 3499,
+      title: 'Campus Warrior',
+      subtitle: 'Inspiring peers and maintaining high strength habits',
+      icon: Icons.shield_rounded,
+    ),
+    CampusRankTier(
+      level: 5,
+      minXp: 3500,
+      maxXp: 4999,
+      title: 'Desi Beast',
+      subtitle: 'Unstoppable work ethic and high-intensity stamina',
+      icon: Icons.bolt_rounded,
+    ),
+    CampusRankTier(
+      level: 6,
+      minXp: 5000,
+      maxXp: 6999,
+      title: 'Odisha Titan',
+      subtitle: 'Endurance champion leading campus fitness trails',
+      icon: Icons.landscape_rounded,
+    ),
+    CampusRankTier(
+      level: 7,
+      minXp: 7000,
+      maxXp: 9999,
+      title: 'Campus Legend',
+      subtitle: 'Elite athletic status across the university community',
+      icon: Icons.military_tech_rounded,
+    ),
+    CampusRankTier(
+      level: 8,
+      minXp: 10000,
+      maxXp: 999999,
+      title: 'Grandmaster',
+      subtitle: 'Peak athletic mastery. Highest honor in GenFit.',
+      icon: Icons.workspace_premium_rounded,
+    ),
   ];
 
   static List<BadgeItem> get initialBadges => [
@@ -46,42 +91,49 @@ class GamificationService extends ChangeNotifier {
       name: 'First Workout',
       description: 'Completed your first workout session in GenFit',
       icon: Icons.fitness_center_rounded,
+      category: 'Workouts',
     ),
     const BadgeItem(
       id: 'seven_day_streak',
       name: '7 Day Streak',
       description: 'Maintained a 7-day fitness streak',
       icon: Icons.local_fire_department_rounded,
+      category: 'Consistency',
     ),
     const BadgeItem(
       id: 'hundred_reps',
       name: '100 Reps',
       description: 'Crushed 100 cumulative exercise repetitions',
       icon: Icons.military_tech_rounded,
+      category: 'Workouts',
     ),
     const BadgeItem(
       id: 'first_meal_logged',
       name: 'First Meal Logged',
       description: 'Logged your first meal in the Nutrition module',
       icon: Icons.restaurant_rounded,
+      category: 'Nutrition',
     ),
     const BadgeItem(
       id: 'campus_challenger',
       name: 'Campus Challenger',
       description: 'Completed your first daily campus challenge',
       icon: Icons.emoji_events_rounded,
+      category: 'Challenges',
     ),
     const BadgeItem(
       id: 'journey_starter',
       name: 'Journey Starter',
       description: 'Started your Odisha Fitness Trail journey',
       icon: Icons.explore_rounded,
+      category: 'Odisha Heritage',
     ),
     const BadgeItem(
       id: 'odisha_explorer',
       name: 'Odisha Explorer',
       description: 'Explored 3 or more regional fitness trail milestones',
       icon: Icons.map_rounded,
+      category: 'Odisha Heritage',
     ),
   ];
 
@@ -91,7 +143,7 @@ class GamificationService extends ChangeNotifier {
       title: 'Campus Steps Sprint',
       description: 'Walk 3,000 active steps between college classes today',
       rewardXp: 150,
-      progress: 2150,
+      progress: 0,
       target: 3000,
       unit: 'steps',
       category: 'Daily Quest',
@@ -102,7 +154,7 @@ class GamificationService extends ChangeNotifier {
       title: '7 Day Streak',
       description: 'Keep your GenFit streak alive for 7 consecutive days',
       rewardXp: 100,
-      progress: 1,
+      progress: 0,
       target: 7,
       unit: 'days',
       category: 'Consistency',
@@ -113,7 +165,7 @@ class GamificationService extends ChangeNotifier {
       title: '100 Squats',
       description: 'Accumulate 100 AI form-checked squats in workout sessions',
       rewardXp: 100,
-      progress: 45,
+      progress: 0,
       target: 100,
       unit: 'reps',
       category: 'Strength',
@@ -124,7 +176,7 @@ class GamificationService extends ChangeNotifier {
       title: '10K Steps',
       description: 'Walk 10,000 active steps across campus today',
       rewardXp: 50,
-      progress: 7420,
+      progress: 0,
       target: 10000,
       unit: 'steps',
       category: 'Cardio',
@@ -146,7 +198,7 @@ class GamificationService extends ChangeNotifier {
       title: 'Campus Champion',
       description: 'Log 3 meals and complete 1 workout in a single day',
       rewardXp: 120,
-      progress: 2,
+      progress: 0,
       target: 4,
       unit: 'tasks',
       category: 'Elite Quest',
@@ -171,6 +223,46 @@ class GamificationService extends ChangeNotifier {
   String? _customStoragePath;
   int _lastObservedMealCount = 0;
   bool _isNutritionListenerAttached = false;
+  DailyStatsService? _customDailyStatsService;
+  VoidCallback? _dailyStatsListener;
+  DailyStatsService? _currentlyAttachedDailyStatsService;
+
+  DailyStatsService get _effectiveDailyStatsService =>
+      _customDailyStatsService ?? DailyStatsService.instance;
+
+  /// Sets a custom [DailyStatsService] instance (useful for unit testing isolation).
+  void setDailyStatsService(DailyStatsService? service) {
+    detachDailyStatsListener();
+    _customDailyStatsService = service;
+    if (service != null) {
+      attachDailyStatsListener(service);
+    }
+  }
+
+  /// Attaches an automated listener to [DailyStatsService] to synchronize challenge progress.
+  void attachDailyStatsListener([DailyStatsService? service]) {
+    final target = service ?? _effectiveDailyStatsService;
+    if (_currentlyAttachedDailyStatsService == target &&
+        _dailyStatsListener != null) {
+      return;
+    }
+    detachDailyStatsListener();
+    _currentlyAttachedDailyStatsService = target;
+    _dailyStatsListener = () {
+      syncChallengesFromDailyStats(target.todayStats);
+    };
+    target.addListener(_dailyStatsListener!);
+  }
+
+  /// Detaches the automated listener from [DailyStatsService].
+  void detachDailyStatsListener() {
+    if (_currentlyAttachedDailyStatsService != null &&
+        _dailyStatsListener != null) {
+      _currentlyAttachedDailyStatsService!.removeListener(_dailyStatsListener!);
+      _currentlyAttachedDailyStatsService = null;
+      _dailyStatsListener = null;
+    }
+  }
 
   bool get isInitialized => _isInitialized;
   int get xp => _xp;
@@ -212,14 +304,23 @@ class GamificationService extends ChangeNotifier {
 
   // --- Level Calculations ---
 
-  _LevelTier get _currentTier {
-    for (final tier in _levelTiers) {
+  CampusRankTier get _currentTier {
+    for (final tier in levelTiers) {
       if (_xp >= tier.minXp && _xp <= tier.maxXp) {
         return tier;
       }
     }
-    return _levelTiers.last;
+    return levelTiers.last;
   }
+
+  /// All 8 official campus rank tiers in ascending progression order.
+  List<CampusRankTier> get allTiers => List.unmodifiable(levelTiers);
+
+  /// Current athletic tier corresponding to the user's accumulated XP.
+  CampusRankTier get currentTier => _currentTier;
+
+  /// Whether the user has achieved the pinnacle Grandmaster rank.
+  bool get isMaxRank => currentLevel >= 8;
 
   int get currentLevel => _currentTier.level;
   String get levelTitle => _currentTier.title;
@@ -227,11 +328,13 @@ class GamificationService extends ChangeNotifier {
   int get nextLevelXp => _currentTier.maxXp + 1;
 
   int get xpRequiredForNextLevel {
+    if (isMaxRank) return 0;
     final needed = nextLevelXp - _xp;
     return needed > 0 ? needed : 0;
   }
 
   double get levelProgress {
+    if (isMaxRank) return 1.0;
     final span = nextLevelXp - currentLevelBaseXp;
     if (span <= 0) return 1.0;
     final progress = (_xp - currentLevelBaseXp) / span;
@@ -294,6 +397,7 @@ class GamificationService extends ChangeNotifier {
     } finally {
       _isInitialized = true;
       _attachNutritionListener();
+      attachDailyStatsListener();
       notifyListeners();
     }
   }
@@ -499,6 +603,109 @@ class GamificationService extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Synchronizes daily challenge progress from factual [DailyStats] telemetry.
+  ///
+  /// This method is strictly idempotent: calling it repeatedly with unchanged
+  /// or incremental telemetry will NOT duplicate progress or award duplicate XP.
+  /// Historical [DailyStats] (dates other than today) are rejected to prevent
+  /// retroactive challenge progression.
+  Future<void> syncChallengesFromDailyStats(
+    DailyStats stats, {
+    DateTime? atDate,
+  }) async {
+    final effectiveDate = atDate ?? DateTime.now();
+    final todayKey = DailyStats.formatDate(effectiveDate);
+    if (stats.date != todayKey) {
+      // Historical DailyStats records do not create challenge progress or award XP.
+      return;
+    }
+
+    bool hasChanged = false;
+
+    for (int i = 0; i < _challenges.length; i++) {
+      final challenge = _challenges[i];
+      if (challenge.isCompleted) {
+        // Completed challenges are never re-evaluated and never award duplicate XP.
+        continue;
+      }
+
+      int newProgress = challenge.progress;
+      bool isNowDone = false;
+
+      switch (challenge.id) {
+        case 'c_campus_steps':
+        case 'c_steps_10k':
+          newProgress = stats.steps.clamp(0, challenge.target);
+          isNowDone = stats.steps >= challenge.target;
+          break;
+
+        case 'c_squats_100':
+          newProgress = stats.totalReps.clamp(0, challenge.target);
+          isNowDone = stats.totalReps >= challenge.target;
+          break;
+
+        case 'c_weekend_workout':
+          newProgress = stats.workoutsCompleted.clamp(0, challenge.target);
+          isNowDone = stats.workoutsCompleted >= challenge.target;
+          break;
+
+        case 'c_campus_champion':
+          // Log 3 meals AND complete 1 workout in a single day
+          final mealsContribution = stats.mealsLogged.clamp(0, 3);
+          final workoutContribution = stats.workoutsCompleted >= 1 ? 1 : 0;
+          newProgress = (mealsContribution + workoutContribution).clamp(
+            0,
+            challenge.target,
+          );
+          isNowDone = stats.mealsLogged >= 3 && stats.workoutsCompleted >= 1;
+          break;
+
+        case 'c_streak_7':
+          newProgress = _streakDays.clamp(0, challenge.target);
+          isNowDone = _streakDays >= challenge.target;
+          break;
+
+        default:
+          if (challenge.unit.toLowerCase() == 'steps') {
+            newProgress = stats.steps.clamp(0, challenge.target);
+            isNowDone = stats.steps >= challenge.target;
+          } else if (challenge.unit.toLowerCase() == 'reps') {
+            newProgress = stats.totalReps.clamp(0, challenge.target);
+            isNowDone = stats.totalReps >= challenge.target;
+          } else if (challenge.unit.toLowerCase() == 'session' ||
+              challenge.unit.toLowerCase() == 'workout') {
+            newProgress = stats.workoutsCompleted.clamp(0, challenge.target);
+            isNowDone = stats.workoutsCompleted >= challenge.target;
+          } else {
+            continue;
+          }
+          break;
+      }
+
+      if (newProgress != challenge.progress || isNowDone != challenge.isCompleted) {
+        _challenges[i] = challenge.copyWith(
+          progress: newProgress,
+          isCompleted: isNowDone,
+        );
+        hasChanged = true;
+
+        if (isNowDone) {
+          _totalChallengesCompleted += 1;
+          _xp += challenge.rewardXp > 0
+              ? challenge.rewardXp
+              : GamificationRewards.dailyChallengeCompleted;
+          recordActivity(atDate: effectiveDate);
+          _checkBadgesInternal(atDate: effectiveDate);
+        }
+      }
+    }
+
+    if (hasChanged) {
+      await _persist();
+      notifyListeners();
+    }
+  }
+
   // --- Badges Engine ---
 
   void unlockBadge(String badgeId, {DateTime? atDate}) {
@@ -562,6 +769,8 @@ class GamificationService extends ChangeNotifier {
     _badges = initialBadges;
     _challenges = defaultChallenges;
     _lastObservedMealCount = 0;
+    detachDailyStatsListener();
+    _customDailyStatsService = null;
     await _persist();
     notifyListeners();
   }

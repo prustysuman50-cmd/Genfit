@@ -33,14 +33,23 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
           GamificationService.instance,
         ]),
         builder: (context, _) {
+          final mode = _leaderboardService.currentMode;
           final filter = _leaderboardService.currentFilter;
-          final allEntries = _leaderboardService.getEntries(filter: filter);
-          final topThree = _leaderboardService.getTopThree(filter: filter);
+          final allEntries = _leaderboardService.getEntries(
+            filter: filter,
+            mode: mode,
+          );
+          final topThree = _leaderboardService.getTopThree(
+            filter: filter,
+            mode: mode,
+          );
           final remaining = _leaderboardService.getRemainingEntries(
             filter: filter,
+            mode: mode,
           );
           final currentUserEntry = _leaderboardService.getCurrentUserEntry(
             filter: filter,
+            mode: mode,
           );
 
           return SingleChildScrollView(
@@ -53,17 +62,38 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                   'Train together. Climb together.',
                   style: AppTextStyles.bodyMedium,
                 ),
+                const SizedBox(height: 6),
+
+                // 2. Mode Context Banner / Subtitle
+                Text(
+                  mode == LeaderboardMode.interHostel
+                      ? '🏢 Inter-Hostel Fitness Cup • Friendly hostel block competition'
+                      : '🏛️ Inter-College Championship • State-wide campus rivalry',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.primary.withValues(alpha: 0.9),
+                  ),
+                ),
                 const SizedBox(height: 14),
 
-                // 2. Filter Tabs (Campus / Friends / Weekly)
-                _buildFilterTabs(filter),
-                const SizedBox(height: 18),
+                // 3. Two Modes Switcher: Inter-Hostel vs Inter-College
+                _buildModeSwitcher(mode),
+                const SizedBox(height: 12),
 
-                // 3. Current User's Featured Rank Card
-                _buildCurrentUserCard(currentUserEntry, filter),
+                // 4. Filter Tabs (Campus / Friends / Weekly)
+                _buildFilterTabs(filter),
+                const SizedBox(height: 12),
+
+                // 5. Affiliation Quick Filters (Hostels or Colleges)
+                _buildAffiliationFilters(mode),
+                const SizedBox(height: 16),
+
+                // 6. Current User's Featured Rank Card (Always visible at top)
+                _buildCurrentUserCard(currentUserEntry, filter, mode),
                 const SizedBox(height: 22),
 
-                // 4. Top 3 Podium Section
+                // 7. Top 3 Podium Section
                 if (topThree.isNotEmpty) ...[
                   Text(
                     'Campus Champions',
@@ -72,11 +102,11 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                     ),
                   ),
                   const SizedBox(height: 14),
-                  _buildPodiumSection(topThree, filter),
+                  _buildPodiumSection(topThree, filter, mode),
                   const SizedBox(height: 24),
                 ],
 
-                // 5. Ranked Student List (Rank 4+)
+                // 8. Ranked Student List (Rank 4+)
                 if (remaining.isNotEmpty) ...[
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -98,7 +128,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  ...remaining.map((entry) => _buildRankedRow(entry, filter)),
+                  ...remaining.map((entry) => _buildRankedRow(entry, filter, mode)),
                 ] else if (topThree.isEmpty) ...[
                   const Padding(
                     padding: EdgeInsets.symmetric(vertical: 40),
@@ -116,6 +146,86 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
             ),
           );
         },
+      ),
+    );
+  }
+
+  /// Mode Switcher: Inter-Hostel vs Inter-College
+  Widget _buildModeSwitcher(LeaderboardMode activeMode) {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceElevatedDark,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppColors.primary.withValues(alpha: 0.3),
+          width: 1.2,
+        ),
+      ),
+      child: Row(
+        children: [
+          _buildModeButton(
+            label: 'Inter-Hostel',
+            icon: Icons.apartment_rounded,
+            isSelected: activeMode == LeaderboardMode.interHostel,
+            onTap: () => _leaderboardService.setMode(LeaderboardMode.interHostel),
+          ),
+          _buildModeButton(
+            label: 'Inter-College',
+            icon: Icons.account_balance_rounded,
+            isSelected: activeMode == LeaderboardMode.interCollege,
+            onTap: () => _leaderboardService.setMode(LeaderboardMode.interCollege),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildModeButton({
+    required String label,
+    required IconData icon,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: isSelected ? AppColors.primary : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: AppColors.primary.withValues(alpha: 0.35),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 16,
+                color: isSelected ? Colors.black : AppColors.textSecondaryDark,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: isSelected ? FontWeight.w900 : FontWeight.w700,
+                  color: isSelected ? Colors.black : AppColors.textSecondaryDark,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -170,14 +280,91 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     );
   }
 
+  /// Horizontal affiliation filter chips (Hostels or Colleges)
+  Widget _buildAffiliationFilters(LeaderboardMode mode) {
+    final isHostel = mode == LeaderboardMode.interHostel;
+    final options = isHostel
+        ? _leaderboardService.getAvailableHostels()
+        : _leaderboardService.getAvailableColleges();
+    final selected = isHostel
+        ? _leaderboardService.selectedHostel
+        : _leaderboardService.selectedCollege;
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: options.map((item) {
+          final isSelected = (selected == null && item == 'All') ||
+              (selected != null && selected.toLowerCase() == item.toLowerCase());
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: GestureDetector(
+              onTap: () {
+                if (isHostel) {
+                  _leaderboardService.setSelectedHostel(item == 'All' ? null : item);
+                } else {
+                  _leaderboardService.setSelectedCollege(item == 'All' ? null : item);
+                }
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? AppColors.primary.withValues(alpha: 0.18)
+                      : AppColors.surfaceElevatedDark,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: isSelected
+                        ? AppColors.primary
+                        : AppColors.dividerDark,
+                    width: isSelected ? 1.4 : 1.0,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (item != 'All') ...[
+                      Icon(
+                        isHostel ? Icons.apartment : Icons.school,
+                        size: 11,
+                        color: isSelected ? AppColors.primary : AppColors.textSecondaryDark,
+                      ),
+                      const SizedBox(width: 4),
+                    ],
+                    Text(
+                      item,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                        color: isSelected
+                            ? AppColors.primary
+                            : AppColors.textSecondaryDark,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
   /// Current User's Highlighted Rank Card
   Widget _buildCurrentUserCard(
     LeaderboardEntry userEntry,
     LeaderboardFilter filter,
+    LeaderboardMode mode,
   ) {
     final scoreText = filter == LeaderboardFilter.weekly
         ? '${userEntry.weeklyXp} Weekly XP'
         : '${userEntry.xp} XP';
+
+    final affiliationText = mode == LeaderboardMode.interHostel
+        ? userEntry.hostel
+        : userEntry.college;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -272,6 +459,31 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                   ],
                 ),
                 const SizedBox(height: 2),
+                Row(
+                  children: [
+                    Icon(
+                      mode == LeaderboardMode.interHostel
+                          ? Icons.apartment_rounded
+                          : Icons.school_rounded,
+                      size: 11,
+                      color: AppColors.primary,
+                    ),
+                    const SizedBox(width: 3),
+                    Flexible(
+                      child: Text(
+                        affiliationText,
+                        style: const TextStyle(
+                          color: AppColors.primary,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 2),
                 Text(
                   '${userEntry.levelTitle} • LVL ${userEntry.level}',
                   style: AppTextStyles.bodySmall.copyWith(
@@ -326,6 +538,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
   Widget _buildPodiumSection(
     List<LeaderboardEntry> topThree,
     LeaderboardFilter filter,
+    LeaderboardMode mode,
   ) {
     LeaderboardEntry? first;
     LeaderboardEntry? second;
@@ -363,6 +576,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                     pedestalHeight: 88,
                     color: const Color(0xFFC0C0C0), // Silver
                     filter: filter,
+                    mode: mode,
                   )
                 : const SizedBox.shrink(),
           ),
@@ -377,6 +591,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
               color: const Color(0xFFFFD700), // Gold
               isFirst: true,
               filter: filter,
+              mode: mode,
             ),
           ),
           const SizedBox(width: 8),
@@ -390,6 +605,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                     pedestalHeight: 72,
                     color: const Color(0xFFCD7F32), // Bronze
                     filter: filter,
+                    mode: mode,
                   )
                 : const SizedBox.shrink(),
           ),
@@ -405,11 +621,16 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     required Color color,
     bool isFirst = false,
     required LeaderboardFilter filter,
+    required LeaderboardMode mode,
   }) {
     final avatarSize = isFirst ? 58.0 : 46.0;
     final score = filter == LeaderboardFilter.weekly
         ? '${entry.weeklyXp} XP'
         : '${entry.xp} XP';
+
+    final affiliationLabel = mode == LeaderboardMode.interHostel
+        ? entry.hostel
+        : entry.college;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -429,55 +650,55 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
 
         // Avatar with colored ring
         Stack(
-          alignment: Alignment.bottomCenter,
-          children: [
-            Container(
-              width: avatarSize,
-              height: avatarSize,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: color.withValues(alpha: 0.15),
-                border: Border.all(color: color, width: isFirst ? 2.5 : 1.8),
-                boxShadow: [
-                  BoxShadow(
-                    color: color.withValues(alpha: 0.3),
-                    blurRadius: 10,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Center(
-                child: Text(
-                  entry.avatarInitials,
-                  style: TextStyle(
-                    color: color,
-                    fontWeight: FontWeight.w900,
-                    fontSize: isFirst ? 18 : 14,
-                  ),
-                ),
-              ),
-            ),
-            // Rank circular pill
-            Positioned(
-              bottom: -2,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+            alignment: Alignment.bottomCenter,
+            children: [
+              Container(
+                width: avatarSize,
+                height: avatarSize,
                 decoration: BoxDecoration(
-                  color: color,
-                  borderRadius: BorderRadius.circular(10),
+                  shape: BoxShape.circle,
+                  color: color.withValues(alpha: 0.15),
+                  border: Border.all(color: color, width: isFirst ? 2.5 : 1.8),
+                  boxShadow: [
+                    BoxShadow(
+                      color: color.withValues(alpha: 0.3),
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
-                child: Text(
-                  '#$rank',
-                  style: const TextStyle(
-                    fontSize: 9,
-                    fontWeight: FontWeight.w900,
-                    color: Colors.black,
+                child: Center(
+                  child: Text(
+                    entry.avatarInitials,
+                    style: TextStyle(
+                      color: color,
+                      fontWeight: FontWeight.w900,
+                      fontSize: isFirst ? 18 : 14,
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
-        ),
+              // Rank circular pill
+              Positioned(
+                bottom: -2,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: color,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '#$rank',
+                    style: const TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.black,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         const SizedBox(height: 8),
 
         // Name & You Tag
@@ -516,6 +737,23 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
               ),
             ],
           ],
+        ),
+        const SizedBox(height: 2),
+
+        // Affiliation badge
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Text(
+            affiliationLabel,
+            style: TextStyle(
+              fontSize: 9,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textSecondaryDark,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+          ),
         ),
         const SizedBox(height: 2),
 
@@ -586,11 +824,19 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
   }
 
   /// Individual Row for Students ranked 4+
-  Widget _buildRankedRow(LeaderboardEntry entry, LeaderboardFilter filter) {
+  Widget _buildRankedRow(
+    LeaderboardEntry entry,
+    LeaderboardFilter filter,
+    LeaderboardMode mode,
+  ) {
     final isUser = entry.isCurrentUser;
     final score = filter == LeaderboardFilter.weekly
         ? '${entry.weeklyXp} XP'
         : '${entry.xp} XP';
+
+    final affiliationLabel = mode == LeaderboardMode.interHostel
+        ? entry.hostel
+        : entry.college;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -691,6 +937,31 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                         ),
                       ),
                     ],
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Row(
+                  children: [
+                    Icon(
+                      mode == LeaderboardMode.interHostel
+                          ? Icons.apartment_rounded
+                          : Icons.school_rounded,
+                      size: 11,
+                      color: AppColors.textSecondaryDark,
+                    ),
+                    const SizedBox(width: 3),
+                    Flexible(
+                      child: Text(
+                        affiliationLabel,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textSecondaryDark,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 2),

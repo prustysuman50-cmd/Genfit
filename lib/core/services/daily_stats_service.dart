@@ -236,6 +236,30 @@ class DailyStatsService extends ChangeNotifier {
     date: date,
   );
 
+  /// Sets or updates activity metrics for a specific canonical 'YYYY-MM-DD' [dateKey].
+  Future<void> updateActivityForDate(
+    String dateKey, {
+    int? steps,
+    int? activeMinutes,
+    int? caloriesBurned,
+    int? workoutsCompleted,
+    int? totalReps,
+    int? mealsLogged,
+  }) async {
+    final current = getOrCreateStats(dateKey);
+    final updated = current.copyWith(
+      steps: steps ?? current.steps,
+      activeMinutes: activeMinutes ?? current.activeMinutes,
+      caloriesBurned: caloriesBurned ?? current.caloriesBurned,
+      workoutsCompleted: workoutsCompleted ?? current.workoutsCompleted,
+      totalReps: totalReps ?? current.totalReps,
+      mealsLogged: mealsLogged ?? current.mealsLogged,
+    );
+    _dailyRecords[dateKey] = updated;
+    await _persist();
+    notifyListeners();
+  }
+
   /// Adds steps (and optionally calories burned) to today (or a specified [date]).
   Future<void> addSteps(
     int steps, {

@@ -93,7 +93,7 @@ class SquatAnalysisService {
   SquatAnalysisService({
     this.standingAngleThreshold = 160.0,
     this.descendingAngleThreshold = 145.0,
-    this.bottomAngleThreshold = 100.0,
+    this.bottomAngleThreshold = 105.0,
     this.returningAngleThreshold = 115.0,
     this.smoothingFactor = 0.45,
     this.minRepCooldown = const Duration(milliseconds: 800),

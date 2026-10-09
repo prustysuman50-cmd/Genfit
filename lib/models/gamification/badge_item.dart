@@ -7,6 +7,7 @@ class BadgeItem {
   final IconData icon;
   final bool isUnlocked;
   final DateTime? unlockedAt;
+  final String category;
 
   const BadgeItem({
     required this.id,
@@ -15,6 +16,7 @@ class BadgeItem {
     required this.icon,
     this.isUnlocked = false,
     this.unlockedAt,
+    this.category = 'General',
   });
 
   BadgeItem copyWith({
@@ -24,6 +26,7 @@ class BadgeItem {
     IconData? icon,
     bool? isUnlocked,
     DateTime? unlockedAt,
+    String? category,
   }) {
     return BadgeItem(
       id: id ?? this.id,
@@ -32,6 +35,7 @@ class BadgeItem {
       icon: icon ?? this.icon,
       isUnlocked: isUnlocked ?? this.isUnlocked,
       unlockedAt: unlockedAt ?? this.unlockedAt,
+      category: category ?? this.category,
     );
   }
 
@@ -42,6 +46,7 @@ class BadgeItem {
     'iconCodePoint': icon.codePoint,
     'isUnlocked': isUnlocked,
     'unlockedAt': unlockedAt?.toIso8601String(),
+    'category': category,
   };
 
   factory BadgeItem.fromJson(Map<String, dynamic> json) {
@@ -55,7 +60,27 @@ class BadgeItem {
       unlockedAt: json['unlockedAt'] != null
           ? DateTime.parse(json['unlockedAt'] as String)
           : null,
+      category: (json['category'] as String?) ?? categoryForBadgeId(id),
     );
+  }
+
+  static String categoryForBadgeId(String id) {
+    switch (id) {
+      case 'first_workout':
+      case 'hundred_reps':
+        return 'Workouts';
+      case 'first_meal_logged':
+        return 'Nutrition';
+      case 'seven_day_streak':
+        return 'Consistency';
+      case 'campus_challenger':
+        return 'Challenges';
+      case 'journey_starter':
+      case 'odisha_explorer':
+        return 'Odisha Heritage';
+      default:
+        return 'General';
+    }
   }
 
   static IconData _iconForBadgeId(String id) {

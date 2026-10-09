@@ -5,66 +5,68 @@ import 'package:genfit/models/nutrition/food_item.dart';
 
 void main() {
   group('FoodRecognitionService Tests', () {
-    late FoodRecognitionService service;
+    late FoodRecognitionService offlineService;
 
     setUp(() {
-      service = const FoodRecognitionService(simulatedDelay: Duration.zero);
+      offlineService = const FoodRecognitionService(
+        simulatedDelay: Duration.zero,
+      );
     });
 
-    test('mock recognition returns a valid FoodRecognitionResult', () async {
-      final result = await service.analyzeImage('/path/to/mock_plate.jpg');
+    test(
+      'default offline mode returns honest unselected result with NO hardcoded Chicken Curry',
+      () async {
+        final result = await offlineService.analyzeImage('/path/to/mock_plate.jpg');
 
-      expect(result, isNotNull);
-      expect(result.detectedLabel, equals('Chicken Curry'));
-      expect(result.confidence, equals(0.91));
-      expect(result.confidencePercentage, equals('91%'));
-      expect(result.imagePath, equals('/path/to/mock_plate.jpg'));
-      expect(result.candidateLabels, contains('Chicken Curry'));
-      expect(result.analyzedAt, isNotNull);
-    });
+        expect(result, isNotNull);
+        expect(result.detectedLabel, isNot(equals('Chicken Curry')));
+        expect(result.detectedLabel, isEmpty);
+        expect(result.confidence, equals(0.0));
+        expect(result.confidencePercentage, equals('0%'));
+        expect(result.matchedFoodItem, isNull);
+        expect(result.hasMatchedFoodItem, isFalse);
+        expect(result.isLiveAi, isFalse);
+        expect(result.isOfflineFallback, isTrue);
+        expect(result.imagePath, equals('/path/to/mock_plate.jpg'));
+      },
+    );
 
-    test('returned FoodItem exists in LocalFoodDatabase', () async {
-      final result = await service.analyzeImage('/test/image.jpg');
+    test(
+      'two different selected images do not produce hardcoded Chicken Curry results',
+      () async {
+        final appleScan = await offlineService.analyzeImage('/test/apple.jpg');
+        final riceScan = await offlineService.analyzeImage('/test/rice.jpg');
 
-      // 1. Result must have a matched local FoodItem
+        // Neither image should be silently forced to Chicken Curry
+        expect(appleScan.detectedLabel, isNot(equals('Chicken Curry')));
+        expect(riceScan.detectedLabel, isNot(equals('Chicken Curry')));
+        expect(appleScan.matchedFoodItem, isNull);
+        expect(riceScan.matchedFoodItem, isNull);
+        expect(appleScan.hasMatchedFoodItem, isFalse);
+        expect(riceScan.hasMatchedFoodItem, isFalse);
+      },
+    );
+
+    test('explicit mock fallback mode produces simulated thali for tests', () async {
+      const mockService = FoodRecognitionService(
+        simulatedDelay: Duration.zero,
+        enableMockFallback: true,
+      );
+
+      final result = await mockService.analyzeImage('/test/image.jpg');
+
       expect(result.hasMatchedFoodItem, isTrue);
       expect(result.matchedFoodItem, isNotNull);
 
       final FoodItem item = result.matchedFoodItem!;
-
-      // 2. ID must match the verified local database entry
       expect(item.id, equals('food_chicken'));
 
-      // 3. Must be identical to what LocalFoodDatabase returns
-      final databaseItem = LocalFoodDatabase.getFoodById('food_chicken');
-      expect(databaseItem, isNotNull);
-      expect(item.id, equals(databaseItem!.id));
-      expect(item.name, equals(databaseItem.name));
-      expect(item.servingSize, equals(databaseItem.servingSize));
+      final databaseItem = LocalFoodDatabase.getFoodById('food_chicken')!;
+      expect(item.calories, equals(databaseItem.calories));
+      expect(item.protein, equals(databaseItem.protein));
+      expect(item.carbohydrates, equals(databaseItem.carbohydrates));
+      expect(item.fats, equals(databaseItem.fats));
     });
-
-    test(
-      'no nutrition values are invented by the recognition service',
-      () async {
-        final result = await service.analyzeImage('/test/image.jpg');
-        final databaseItem = LocalFoodDatabase.getFoodById('food_chicken')!;
-
-        // Nutrition values must come strictly from the verified database entry
-        expect(result.matchedFoodItem!.calories, equals(databaseItem.calories));
-        expect(result.matchedFoodItem!.protein, equals(databaseItem.protein));
-        expect(
-          result.matchedFoodItem!.carbohydrates,
-          equals(databaseItem.carbohydrates),
-        );
-        expect(result.matchedFoodItem!.fats, equals(databaseItem.fats));
-
-        // Exact verified values in LocalFoodDatabase: 245.0 kcal, 31.0g protein, 4.0g carbs, 11.5g fats
-        expect(result.matchedFoodItem!.calories, equals(245.0));
-        expect(result.matchedFoodItem!.protein, equals(31.0));
-        expect(result.matchedFoodItem!.carbohydrates, equals(4.0));
-        expect(result.matchedFoodItem!.fats, equals(11.5));
-      },
-    );
 
     test(
       'supports custom mock configurations for testing and simulation',

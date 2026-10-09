@@ -144,7 +144,7 @@ class PushUpAnalysisService {
 
   PushUpAnalysisService({
     this.topAngleThreshold = 150.0,
-    double downAngleThreshold = 100.0,
+    double downAngleThreshold = 105.0,
     this.bodyAlignmentThreshold = 125.0,
     this.smoothingFactor = 0.50,
     this.minLandmarkConfidence = 0.35,

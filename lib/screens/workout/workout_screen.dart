@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-
+import '../../core/services/adaptive_difficulty_service.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import 'models/exercise.dart';
+import 'widgets/adaptive_difficulty_card.dart';
 import 'widgets/ai_workout_hero_card.dart';
 import 'widgets/exercise_card.dart';
 import 'widgets/todays_workout_section.dart';
@@ -18,6 +19,24 @@ class WorkoutScreen extends StatefulWidget {
 
 class _WorkoutScreenState extends State<WorkoutScreen> {
   String _selectedCategory = 'All';
+
+  @override
+  void initState() {
+    super.initState();
+    AdaptiveDifficultyService.instance.addListener(_onDifficultyUpdated);
+  }
+
+  @override
+  void dispose() {
+    AdaptiveDifficultyService.instance.removeListener(_onDifficultyUpdated);
+    super.dispose();
+  }
+
+  void _onDifficultyUpdated() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
 
   void _openWorkoutSession([Exercise? exercise]) {
     Navigator.of(context).push(
@@ -41,6 +60,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   @override
   Widget build(BuildContext context) {
     final filteredList = _filteredExercises;
+    final recommendation =
+        AdaptiveDifficultyService.instance.evaluateRecommendation();
 
     return Scaffold(
       backgroundColor: AppColors.backgroundDark,
@@ -63,9 +84,21 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
           children: [
             // 1. AI Workout Hero Card with Header, Subtitle, and "Start AI Workout" Button
             AiWorkoutHeroCard(onStartAiWorkout: () => _openWorkoutSession()),
+            const SizedBox(height: 20),
+
+            // 2. Adaptive Difficulty Card
+            AdaptiveDifficultyCard(
+              recommendation: recommendation,
+              onSelectLevel: (level) {
+                AdaptiveDifficultyService.instance.setUserPreferredDifficulty(level);
+              },
+              onAcceptRecommendation: () {
+                AdaptiveDifficultyService.instance.acceptRecommendation();
+              },
+            ),
             const SizedBox(height: 24),
 
-            // 2. Today's Workout Section with a sample workout
+            // 3. Today's Workout Section with a sample workout
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [

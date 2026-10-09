@@ -56,6 +56,12 @@ class FoodRecognitionResult {
   /// Whether this result was produced by live Gemini AI (true) or local engine (false).
   final bool isLiveAi;
 
+  /// Whether this result was generated because Gemini AI was offline/unconfigured/failed.
+  final bool isOfflineFallback;
+
+  /// Optional explanatory reason when operating in offline fallback mode.
+  final String? offlineReason;
+
   const FoodRecognitionResult({
     required this.detectedLabel,
     required this.confidence,
@@ -65,7 +71,23 @@ class FoodRecognitionResult {
     this.imagePath,
     required this.analyzedAt,
     this.isLiveAi = false,
+    this.isOfflineFallback = false,
+    this.offlineReason,
   }) : _explicitDetectedItems = detectedItems;
+
+  /// Creates an offline / unconfigured result with no arbitrary preselected food or confidence.
+  FoodRecognitionResult.offline({
+    this.imagePath,
+    this.offlineReason = 'AI recognition unavailable (offline mode).',
+    DateTime? analyzedAt,
+  })  : detectedLabel = '',
+        confidence = 0.0,
+        matchedFoodItem = null,
+        _explicitDetectedItems = const [],
+        candidateLabels = const [],
+        analyzedAt = analyzedAt ?? DateTime.now(),
+        isLiveAi = false,
+        isOfflineFallback = true;
 
   /// All distinct items identified on the plate/meal.
   List<DetectedPlateItem> get detectedItems => _explicitDetectedItems.isNotEmpty
@@ -97,6 +119,32 @@ class FoodRecognitionResult {
       imagePath: imagePath,
       analyzedAt: analyzedAt,
       isLiveAi: isLiveAi,
+      isOfflineFallback: isOfflineFallback,
+      offlineReason: offlineReason,
+    );
+  }
+
+  /// Returns a copy of this result updated with a user-selected manual [FoodItem].
+  FoodRecognitionResult copyWithManualFood(FoodItem food) {
+    return FoodRecognitionResult(
+      detectedLabel: food.name,
+      confidence: 1.0,
+      matchedFoodItem: food,
+      detectedItems: detectedItems.isNotEmpty
+          ? detectedItems
+          : [
+              DetectedPlateItem(
+                label: food.name,
+                confidence: 1.0,
+                matchedFoodItem: food,
+              ),
+            ],
+      candidateLabels: candidateLabels,
+      imagePath: imagePath,
+      analyzedAt: analyzedAt,
+      isLiveAi: isLiveAi,
+      isOfflineFallback: isOfflineFallback,
+      offlineReason: offlineReason,
     );
   }
 }

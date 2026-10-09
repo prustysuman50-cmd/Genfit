@@ -2,12 +2,19 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../models/user_profile.dart';
+import '../../gamification/widgets/campus_rank_roadmap_sheet.dart';
 
 class StreakXpBanner extends StatelessWidget {
   final UserProfile user;
   final VoidCallback? onTap;
+  final VoidCallback? onRankTap;
 
-  const StreakXpBanner({super.key, required this.user, this.onTap});
+  const StreakXpBanner({
+    super.key,
+    required this.user,
+    this.onTap,
+    this.onRankTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -89,53 +96,57 @@ class StreakXpBanner extends StatelessWidget {
               ),
               const SizedBox(width: 8),
 
-              // Right: XP & LEVEL
+              // Right: XP & LEVEL (tappable to view Campus Rank Roadmap)
               Expanded(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: AppColors.brightPurple.withValues(alpha: 0.2),
-                        shape: BoxShape.circle,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: onRankTap ?? () => CampusRankRoadmapSheet.show(context),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppColors.brightPurple.withValues(alpha: 0.2),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.bolt_rounded,
+                          color: AppColors.brightPurple,
+                          size: 20,
+                        ),
                       ),
-                      child: const Icon(
-                        Icons.bolt_rounded,
-                        color: AppColors.brightPurple,
-                        size: 20,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            '${user.xp} XP',
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w900,
-                              color: AppColors.brightPurple,
-                              letterSpacing: -0.3,
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              '${user.xp} XP',
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w900,
+                                color: AppColors.brightPurple,
+                                letterSpacing: -0.3,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          Text(
-                            'LVL ${user.level} • ${user.levelTitle}',
-                            style: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.softPurple,
+                            Text(
+                              'LVL ${user.level} • ${user.levelTitle}',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.softPurple,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ],

@@ -46,3 +46,19 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Local secrets and environment configuration (NEVER commit to version control)
+*.env
+*.env.*
+.env
+.env.*
+secrets.json
+secrets.local.json
+secrets.*.json
+!secrets.example.json
+config.local.json
+local.properties
+key.properties
+*.keystore
+*.jks
+

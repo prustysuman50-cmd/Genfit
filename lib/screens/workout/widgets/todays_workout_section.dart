@@ -1,18 +1,23 @@
 import 'package:flutter/material.dart';
-
+import '../../../core/services/adaptive_difficulty_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
-import '../../../data/mock_data.dart';
 import '../../../models/workout.dart';
 
 class TodaysWorkoutSection extends StatelessWidget {
   final VoidCallback onStartWorkout;
+  final Workout? workout;
 
-  const TodaysWorkoutSection({super.key, required this.onStartWorkout});
+  const TodaysWorkoutSection({
+    super.key,
+    required this.onStartWorkout,
+    this.workout,
+  });
 
   @override
   Widget build(BuildContext context) {
-    const Workout workout = MockData.todaysWorkout;
+    final Workout activeWorkout = workout ??
+        AdaptiveDifficultyService.instance.getAdaptiveTodaysWorkout();
 
     return Container(
       width: double.infinity,
@@ -64,7 +69,7 @@ class TodaysWorkoutSection extends StatelessWidget {
                 ),
                 const SizedBox(width: 4),
                 Text(
-                  '${workout.calories} kcal',
+                  '${activeWorkout.calories} kcal',
                   style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w800,
@@ -82,7 +87,7 @@ class TodaysWorkoutSection extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  workout.title,
+                  activeWorkout.title,
                   style: AppTextStyles.titleMedium.copyWith(
                     fontWeight: FontWeight.w800,
                     fontSize: 18,
@@ -91,7 +96,7 @@ class TodaysWorkoutSection extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '${workout.category} • ${workout.equipment}',
+                  '${activeWorkout.category} • ${activeWorkout.equipment}',
                   style: AppTextStyles.bodySmall.copyWith(
                     color: AppColors.textSecondaryDark,
                     fontWeight: FontWeight.w500,
@@ -104,17 +109,17 @@ class TodaysWorkoutSection extends StatelessWidget {
                   children: [
                     _buildSpecChip(
                       Icons.timer_outlined,
-                      '${workout.durationMinutes} mins',
+                      '${activeWorkout.durationMinutes} mins',
                     ),
                     const SizedBox(width: 8),
                     _buildSpecChip(
                       Icons.fitness_center_outlined,
-                      '${workout.exercisesCount} exercises',
+                      '${activeWorkout.exercisesCount} exercises',
                     ),
                     const SizedBox(width: 8),
                     _buildSpecChip(
                       Icons.trending_up_rounded,
-                      workout.intensity,
+                      activeWorkout.intensity,
                     ),
                   ],
                 ),
@@ -124,7 +129,7 @@ class TodaysWorkoutSection extends StatelessWidget {
                 Wrap(
                   spacing: 6,
                   runSpacing: 6,
-                  children: workout.tags.map((tag) {
+                  children: activeWorkout.tags.map((tag) {
                     return Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 8,

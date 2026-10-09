@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/services/step_tracking_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../models/daily_metric.dart';
 import '../../../models/daily_stats.dart';
@@ -253,6 +254,10 @@ class DailyProgressCard extends StatelessWidget {
                         ),
                       ),
                     ),
+                    const SizedBox(height: 6),
+                    Center(
+                      child: _buildSensorStatusBadge(context),
+                    ),
                   ],
                 ),
               ),
@@ -423,6 +428,72 @@ class DailyProgressCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildSensorStatusBadge(BuildContext context) {
+    final tracker = StepTrackingService.instance;
+    return ListenableBuilder(
+      listenable: tracker,
+      builder: (context, _) {
+        final String label;
+        final Color color;
+        final IconData icon;
+
+        if (tracker.currentMode == StepTrackingMode.demoSimulation) {
+          label = '⚡ Demo Mode';
+          color = const Color(0xFFFFB74D);
+          icon = Icons.bolt_rounded;
+        } else if (!tracker.isSensorAvailable) {
+          label = '⚠ Sensor Unavailable';
+          color = const Color(0xFFEF5350);
+          icon = Icons.warning_amber_rounded;
+        } else if (tracker.sensorStatus == StepSensorStatus.permissionDenied ||
+            tracker.sensorStatus ==
+                StepSensorStatus.permissionPermanentlyDenied) {
+          label = '🔒 Permission Needed';
+          color = const Color(0xFFFFB74D);
+          icon = Icons.lock_outline_rounded;
+        } else {
+          label = '🟢 Live Sensor';
+          color = const Color(0xFF4CAF50);
+          icon = Icons.sensors_rounded;
+        }
+
+        return GestureDetector(
+          onTap: onLogSteps,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: color.withValues(alpha: 0.3),
+                width: 0.8,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 9, color: color),
+                const SizedBox(width: 3),
+                Flexible(
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 8.5,
+                      fontWeight: FontWeight.w800,
+                      color: color,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

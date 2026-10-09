@@ -87,7 +87,8 @@ class AiViewfinderPreview extends StatelessWidget {
                                 CameraLensDirection.front,
                           ),
                         )
-                      else if (squatLandmarks != null)
+                      else if (exercise.id == 'ex_squats' &&
+                          squatLandmarks != null)
                         CustomPaint(
                           painter: _SquatSkeletonPainter(
                             landmarks: squatLandmarks!,

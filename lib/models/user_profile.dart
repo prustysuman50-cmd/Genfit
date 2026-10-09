@@ -5,6 +5,7 @@ class UserProfile {
   final String name;
   final String college;
   final String campus;
+  final String hostel;
   final String avatarInitials;
   final int streakDays;
   final int xp;
@@ -37,6 +38,7 @@ class UserProfile {
     this.name = 'Ayush',
     this.college = 'ITER • Bhubaneswar Campus',
     this.campus = 'Bhubaneswar Campus',
+    this.hostel = 'Mahanadi Hostel',
     this.avatarInitials = 'AK',
     this.streakDays = 7,
     this.xp = 3850,
@@ -95,6 +97,7 @@ class UserProfile {
     String? name,
     String? college,
     String? campus,
+    String? hostel,
     String? avatarInitials,
     int? streakDays,
     int? xp,
@@ -121,6 +124,7 @@ class UserProfile {
       name: name ?? this.name,
       college: college ?? this.college,
       campus: campus ?? this.campus,
+      hostel: hostel ?? this.hostel,
       avatarInitials: avatarInitials ?? this.avatarInitials,
       streakDays: streakDays ?? this.streakDays,
       xp: xp ?? this.xp,
@@ -187,6 +191,7 @@ class UserProfile {
       'name': name,
       'college': college,
       'campus': campus,
+      'hostel': hostel,
       'avatarInitials': avatarInitials,
       'streakDays': streakDays,
       'xp': xp,
@@ -219,6 +224,7 @@ class UserProfile {
       name: name,
       college: json['college'] as String? ?? 'ITER • Bhubaneswar Campus',
       campus: json['campus'] as String? ?? 'Bhubaneswar Campus',
+      hostel: json['hostel'] as String? ?? 'Mahanadi Hostel',
       avatarInitials: initials,
       streakDays: (json['streakDays'] as num?)?.toInt() ?? 7,
       xp: (json['xp'] as num?)?.toInt() ?? 3850,

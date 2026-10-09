@@ -6,11 +6,13 @@ import '../../../models/challenge.dart';
 class DailyChallengeCard extends StatelessWidget {
   final Challenge challenge;
   final VoidCallback onComplete;
+  final VoidCallback? onWeeklyQuestsTap;
 
   const DailyChallengeCard({
     super.key,
     required this.challenge,
     required this.onComplete,
+    this.onWeeklyQuestsTap,
   });
 
   @override
@@ -214,6 +216,54 @@ class DailyChallengeCard extends StatelessWidget {
               ),
             ),
           ),
+          if (onWeeklyQuestsTap != null) ...[
+            const SizedBox(height: 10),
+            GestureDetector(
+              onTap: onWeeklyQuestsTap,
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: AppColors.primaryContainer.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: AppColors.primary.withValues(alpha: 0.25),
+                  ),
+                ),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.assignment_turned_in_rounded,
+                      size: 14,
+                      color: AppColors.softPurple,
+                    ),
+                    SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        'Weekly Quest Board',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.softPurple,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    SizedBox(width: 4),
+                    Icon(
+                      Icons.arrow_forward_ios_rounded,
+                      size: 10,
+                      color: AppColors.softPurple,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );

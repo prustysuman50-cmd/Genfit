@@ -13,7 +13,7 @@ void main() {
       service = SquatAnalysisService(
         standingAngleThreshold: 160.0,
         descendingAngleThreshold: 145.0,
-        bottomAngleThreshold: 100.0,
+        bottomAngleThreshold: 105.0,
         returningAngleThreshold: 115.0,
         smoothingFactor: 1.0, // 1.0 = direct pass-through for exact angle tests
         minRepCooldown: const Duration(milliseconds: 800),
@@ -103,7 +103,7 @@ void main() {
       service.processAngle(135.0); // descending
       expect(service.state, equals(SquatState.descending));
 
-      // User goes down to 110° (does not reach <= 100° bottom threshold)
+      // User goes down to 110° (does not reach <= 105° bottom threshold)
       service.processAngle(110.0);
       expect(service.state, equals(SquatState.descending));
 
@@ -111,6 +111,60 @@ void main() {
       service.processAngle(165.0);
       expect(service.state, equals(SquatState.standing));
       expect(service.repCount, equals(0)); // Incomplete squat, 0 reps
+    });
+
+    test('movement with bottom angle slightly above 100 degrees (104.0°) counts as a valid repetition', () {
+      service.processAngle(170.0); // standing
+      service.processAngle(135.0); // descending
+      expect(service.state, equals(SquatState.descending));
+
+      // Bottom inflection at 104.0° (<= 105.0° adjusted bottom threshold)
+      service.processAngle(104.0);
+      expect(service.state, equals(SquatState.bottom));
+      expect(service.repCount, equals(0));
+
+      // Returning / ascending (> 115.0°)
+      service.processAngle(125.0);
+      expect(service.state, equals(SquatState.returning));
+      expect(service.repCount, equals(0));
+
+      simulatedTime = simulatedTime.add(const Duration(seconds: 1));
+
+      // Standing lockout (>= 160.0°)
+      service.processAngle(165.0);
+      expect(service.state, equals(SquatState.standing));
+      expect(service.repCount, equals(1));
+    });
+
+    test('shallow squat movement (115.0°) does NOT count and aborts to standing', () {
+      service.processAngle(170.0); // standing
+      service.processAngle(135.0); // descending
+      expect(service.state, equals(SquatState.descending));
+
+      // Shallow dip only reaching 115.0° (fails to reach <= 105.0° bottom threshold)
+      service.processAngle(115.0);
+      expect(service.state, equals(SquatState.descending));
+
+      // User stands back up without completing bottom depth
+      service.processAngle(165.0);
+      expect(service.state, equals(SquatState.standing));
+      expect(service.repCount, equals(0)); // Discarded as aborted descent
+    });
+
+    test('incomplete return from bottom (reaches 150.0° but not 160.0°) does NOT count repetition', () {
+      service.processAngle(170.0); // standing
+      service.processAngle(130.0); // descending
+      service.processAngle(104.0); // bottom
+      expect(service.state, equals(SquatState.bottom));
+
+      // Starts returning
+      service.processAngle(125.0);
+      expect(service.state, equals(SquatState.returning));
+
+      // Pauses or partially ascends to 150.0° (< 160.0° standing threshold)
+      service.processAngle(150.0);
+      expect(service.state, equals(SquatState.returning));
+      expect(service.repCount, equals(0));
     });
 
     test('counts multiple complete repetitions sequentially', () {

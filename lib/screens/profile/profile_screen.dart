@@ -5,6 +5,7 @@ import '../../core/services/gamification_service.dart';
 import '../../core/services/user_service.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
+import '../gamification/widgets/campus_rank_roadmap_sheet.dart';
 import '../progress/progress_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
@@ -149,100 +150,138 @@ class ProfileScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 18),
 
-                      // 2. LARGE PROGRESSION SECTION
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(18),
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFF22173B), Color(0xFF14141D)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          border: Border.all(
-                            color: AppColors.brightPurple.withValues(
-                              alpha: 0.35,
+                      // 2. LARGE PROGRESSION SECTION (Tappable to view Campus Rank Roadmap)
+                      InkWell(
+                        onTap: () => CampusRankRoadmapSheet.show(context),
+                        borderRadius: BorderRadius.circular(18),
+                        child: Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(18),
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFF22173B), Color(0xFF14141D)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
                             ),
-                          ),
-                        ),
-                        child: Column(
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 7,
-                                        vertical: 2,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: AppColors.primary.withValues(
-                                          alpha: 0.2,
-                                        ),
-                                        borderRadius: BorderRadius.circular(6),
-                                      ),
-                                      child: Text(
-                                        'LEVEL ${user.level}',
-                                        style: const TextStyle(
-                                          fontSize: 9,
-                                          fontWeight: FontWeight.w900,
-                                          color: AppColors.brightPurple,
-                                          letterSpacing: 0.8,
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      user.levelTitle.toUpperCase(),
-                                      style: const TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w900,
-                                        color: AppColors.textPrimaryDark,
-                                        letterSpacing: -0.2,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.end,
-                                  children: [
-                                    Text(
-                                      '${user.xp} XP',
-                                      style: const TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.w900,
-                                        color: AppColors.accentYellow,
-                                        letterSpacing: -0.3,
-                                      ),
-                                    ),
-                                    Text(
-                                      '${user.streakDays} Day Streak',
-                                      style: const TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w700,
-                                        color: AppColors.accentOrange,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(6),
-                              child: LinearProgressIndicator(
-                                value: levelProgress,
-                                minHeight: 7,
-                                backgroundColor: AppColors.surfaceElevatedDark,
-                                valueColor: const AlwaysStoppedAnimation<Color>(
-                                  AppColors.brightPurple,
-                                ),
+                            border: Border.all(
+                              color: AppColors.brightPurple.withValues(
+                                alpha: 0.35,
                               ),
                             ),
-                          ],
+                          ),
+                          child: Column(
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 7,
+                                          vertical: 2,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.primary.withValues(
+                                            alpha: 0.2,
+                                          ),
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: Text(
+                                          'LEVEL ${user.level}',
+                                          style: const TextStyle(
+                                            fontSize: 9,
+                                            fontWeight: FontWeight.w900,
+                                            color: AppColors.brightPurple,
+                                            letterSpacing: 0.8,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        user.levelTitle.toUpperCase(),
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w900,
+                                          color: AppColors.textPrimaryDark,
+                                          letterSpacing: -0.2,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      Text(
+                                        '${user.xp} XP',
+                                        style: const TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.w900,
+                                          color: AppColors.accentYellow,
+                                          letterSpacing: -0.3,
+                                        ),
+                                      ),
+                                      Text(
+                                        '${user.streakDays} Day Streak',
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w700,
+                                          color: AppColors.accentOrange,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(6),
+                                child: LinearProgressIndicator(
+                                  value: levelProgress,
+                                  minHeight: 7,
+                                  backgroundColor: AppColors.surfaceElevatedDark,
+                                  valueColor: const AlwaysStoppedAnimation<Color>(
+                                    AppColors.brightPurple,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    g.isMaxRank
+                                        ? 'Max Campus Rank Achieved'
+                                        : '${g.xpRequiredForNextLevel} XP to Level ${user.level + 1}',
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w500,
+                                      color: AppColors.textSecondaryDark,
+                                    ),
+                                  ),
+                                  const Row(
+                                    children: [
+                                      Text(
+                                        'Campus Ranks',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w800,
+                                          color: AppColors.brightPurple,
+                                        ),
+                                      ),
+                                      SizedBox(width: 2),
+                                      Icon(
+                                        Icons.chevron_right_rounded,
+                                        size: 14,
+                                        color: AppColors.brightPurple,
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                       const SizedBox(height: 18),

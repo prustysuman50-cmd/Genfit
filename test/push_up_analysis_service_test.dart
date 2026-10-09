@@ -12,7 +12,7 @@ void main() {
       simulatedTime = DateTime(2026, 1, 1, 12, 0, 0);
       service = PushUpAnalysisService(
         topAngleThreshold: 150.0,
-        downAngleThreshold: 100.0,
+        downAngleThreshold: 105.0,
         bodyAlignmentThreshold: 125.0,
         smoothingFactor: 1.0, // 1.0 = direct pass-through for exact angle tests
         minRepCooldown: const Duration(milliseconds: 800),
@@ -83,6 +83,54 @@ void main() {
 
       // Verified state history
       expect(stateHistory, [PushUpState.down, PushUpState.top]);
+    });
+
+    test('movement with elbow angle slightly above 100 degrees (104.0°) counts as a valid repetition', () {
+      // 1. Establish top plank (160.0°)
+      service.processAngle(160.0);
+      expect(service.hasEstablishedTop, isTrue);
+      expect(service.state, equals(PushUpState.top));
+
+      // 2. Flex elbows to 104.0° (<= 105.0° adjusted threshold)
+      service.processAngle(104.0);
+      expect(service.state, equals(PushUpState.down));
+      expect(service.repCount, equals(0));
+
+      simulatedTime = simulatedTime.add(const Duration(seconds: 1));
+
+      // 3. Extend arms back to top (155.0° >= 150.0°)
+      service.processAngle(155.0);
+      expect(service.state, equals(PushUpState.top));
+      expect(service.repCount, equals(1));
+      expect(service.feedback, equals('Good rep'));
+    });
+
+    test('shallow push-up movement (115.0°) does NOT transition to DOWN and does NOT count', () {
+      service.processAngle(160.0);
+      expect(service.hasEstablishedTop, isTrue);
+
+      // Shallow dip only reaching 115.0° (> 105.0° down threshold)
+      service.processAngle(115.0);
+      expect(service.state, equals(PushUpState.top));
+      expect(service.repCount, equals(0));
+
+      // Return to top
+      service.processAngle(160.0);
+      expect(service.state, equals(PushUpState.top));
+      expect(service.repCount, equals(0));
+    });
+
+    test('incomplete return from DOWN (reaches 140.0° but not 150.0°) does NOT count repetition', () {
+      service.processAngle(160.0);
+
+      // Descend to DOWN (104.0° <= 105.0°)
+      service.processAngle(104.0);
+      expect(service.state, equals(PushUpState.down));
+
+      // Partial push-up only reaching 140.0° (< 150.0° top threshold)
+      service.processAngle(140.0);
+      expect(service.state, equals(PushUpState.down));
+      expect(service.repCount, equals(0));
     });
 
     test('partial movement without reaching DOWN threshold -> 0 reps', () {

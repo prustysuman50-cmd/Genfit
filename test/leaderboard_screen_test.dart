@@ -26,6 +26,7 @@ void main() {
     await CommunityService.instance.resetToDefaults();
     await JourneyService.instance.resetToDefaults();
 
+    LeaderboardService.instance.resetFilters();
     LeaderboardService.instance.setFilter(LeaderboardFilter.campus);
   });
 
@@ -63,12 +64,16 @@ void main() {
       expect(find.text('Leaderboard'), findsOneWidget);
       expect(find.text('Train together. Climb together.'), findsOneWidget);
 
-      // 2. Filter Tabs
+      // 2. Mode Switcher
+      expect(find.text('Inter-Hostel'), findsOneWidget);
+      expect(find.text('Inter-College'), findsOneWidget);
+
+      // 3. Filter Tabs
       expect(find.text('Campus'), findsOneWidget);
       expect(find.text('Friends'), findsOneWidget);
       expect(find.text('Weekly'), findsOneWidget);
 
-      // 3. Current User Card
+      // 4. Current User Card
       expect(find.text('YOU'), findsWidgets);
       expect(find.text(UserService.instance.currentUser.name), findsWidgets);
       expect(
@@ -76,13 +81,13 @@ void main() {
         findsWidgets,
       );
 
-      // 4. Podium Section
+      // 5. Podium Section
       expect(find.text('Campus Champions'), findsOneWidget);
       expect(find.text('#1'), findsWidgets);
       expect(find.text('#2'), findsWidgets);
       expect(find.text('#3'), findsWidgets);
 
-      // 5. Ranked List Header
+      // 6. Ranked List Header
       expect(find.text('Student Rankings'), findsOneWidget);
       expect(find.textContaining('Students'), findsOneWidget);
     },
@@ -133,6 +138,76 @@ void main() {
     );
 
     expect(find.textContaining('Weekly XP'), findsWidgets);
+  });
+
+  testWidgets('Switching modes between Inter-Hostel and Inter-College updates state', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 1800);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(buildLeaderboardApp());
+    await tester.pumpAndSettle();
+
+    // Defaults to Inter-Hostel mode
+    expect(
+      LeaderboardService.instance.currentMode,
+      equals(LeaderboardMode.interHostel),
+    );
+    expect(find.textContaining('Inter-Hostel Fitness Cup'), findsOneWidget);
+
+    // Tap Inter-College mode button
+    await tester.tap(find.text('Inter-College'));
+    await tester.pumpAndSettle();
+
+    expect(
+      LeaderboardService.instance.currentMode,
+      equals(LeaderboardMode.interCollege),
+    );
+    expect(find.textContaining('Inter-College Championship'), findsOneWidget);
+
+    // Tap back to Inter-Hostel mode
+    await tester.tap(find.text('Inter-Hostel'));
+    await tester.pumpAndSettle();
+
+    expect(
+      LeaderboardService.instance.currentMode,
+      equals(LeaderboardMode.interHostel),
+    );
+  });
+
+  testWidgets('Tapping affiliation quick filter narrows leaderboard', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 1800);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(buildLeaderboardApp());
+    await tester.pumpAndSettle();
+
+    // Find chip for 'Mahanadi Hostel'
+    final mahanadiChip = find.text('Mahanadi Hostel');
+    expect(mahanadiChip, findsWidgets);
+
+    await tester.tap(mahanadiChip.first);
+    await tester.pumpAndSettle();
+
+    expect(
+      LeaderboardService.instance.selectedHostel,
+      equals('Mahanadi Hostel'),
+    );
+
+    // Tap 'All' chip to reset
+    final allChip = find.text('All');
+    expect(allChip, findsWidgets);
+    await tester.tap(allChip.first);
+    await tester.pumpAndSettle();
+
+    expect(LeaderboardService.instance.selectedHostel, isNull);
   });
 
   testWidgets('JourneyScreen AppBar button navigates to LeaderboardScreen', (

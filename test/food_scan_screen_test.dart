@@ -50,13 +50,86 @@ void main() {
     );
 
     testWidgets(
-      'processes picked image and displays food detection result card',
+      'offline state shows searchable local food database and does NOT hardcode Chicken Curry',
+      (WidgetTester tester) async {
+        final fakePicker = _FakeImagePicker(
+          XFile('/dummy/test/unrecognized_food.jpg', name: 'unrecognized_food.jpg'),
+        );
+        // Default FoodRecognitionService without mock fallback returns honest offline result
+        const offlineRecognitionService = FoodRecognitionService(
+          simulatedDelay: Duration.zero,
+        );
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: FoodScanScreen(
+              imagePicker: fakePicker,
+              recognitionService: offlineRecognitionService,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // Tap "Scan with Camera" button
+        await tester.tap(find.text('Scan with Camera'));
+        await tester.pumpAndSettle();
+
+        // Offline mode badge and search interface should be displayed
+        expect(find.text('OFFLINE MODE'), findsOneWidget);
+        expect(find.text('Select Food from Verified Database'), findsOneWidget);
+        expect(find.text('POPULAR HOSTEL STAPLES'), findsOneWidget);
+
+        // Should NOT have hardcoded Chicken Curry detected
+        expect(find.text('FOOD DETECTED'), findsNothing);
+
+        // Button should initially prompt user to select a food
+        expect(find.text('Select a Food to Continue'), findsOneWidget);
+
+        // Select "Dalma" from popular staples
+        final dalmaChip = find.text('Dalma');
+        expect(dalmaChip, findsAtLeastNWidgets(1));
+        await tester.ensureVisible(dalmaChip.first);
+        await tester.tap(dalmaChip.first);
+        await tester.pumpAndSettle();
+
+        // Verified baseline nutrition for Dalma should appear in preview
+        expect(find.text('175 kcal'), findsAtLeastNWidgets(1));
+        expect(find.text('Review & Log Meal'), findsOneWidget);
+
+        // Tap "Review & Log Meal" -> Navigates to FoodScanReviewScreen with Dalma
+        final reviewBtn = find.text('Review & Log Meal');
+        await tester.ensureVisible(reviewBtn);
+        await tester.tap(reviewBtn);
+        await tester.pumpAndSettle();
+
+        // On FoodScanReviewScreen
+        expect(find.text('Review & Customize'), findsOneWidget);
+        expect(find.text('Confirm & Log Meal'), findsOneWidget);
+        expect(find.textContaining('Dalma'), findsAtLeastNWidgets(1));
+
+        // Pop back to FoodScanScreen
+        await tester.tap(find.byIcon(Icons.arrow_back_ios_new_rounded));
+        await tester.pumpAndSettle();
+
+        // Tap Retake restores empty state
+        await tester.tap(find.text('Retake'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('No Meal Selected'), findsOneWidget);
+        expect(find.text('Scan with Camera'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'processes detected food and displays food detection result card when recognition succeeds',
       (WidgetTester tester) async {
         final fakePicker = _FakeImagePicker(
           XFile('/dummy/test/chicken_curry.jpg', name: 'chicken_curry.jpg'),
         );
         const instantRecognitionService = FoodRecognitionService(
           simulatedDelay: Duration.zero,
+          enableMockFallback: true,
+          defaultMockFoodId: 'food_chicken',
         );
 
         await tester.pumpWidget(
